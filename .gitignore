@@ -1,0 +1,17 @@
+node_modules/
+.expo/
+.claude/
+.codex
+dist/
+web-build/
+.env.local
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+android/
+ios/
