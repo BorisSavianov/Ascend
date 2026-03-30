@@ -22,10 +22,10 @@ type AuthWithOtp = {
 };
 
 // In Expo Go (__DEV__), use the exp:// URL so deep links work without a build.
-// In production builds, use the custom tracker:// scheme.
+// In production builds, use the custom ascend:// scheme.
 const redirectTo = __DEV__
   ? Linking.createURL('')
-  : Linking.createURL('', { scheme: 'tracker' });
+  : Linking.createURL('', { scheme: 'ascend' });
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -64,7 +64,7 @@ export default function LoginScreen() {
       className="flex-1 bg-gray-950"
     >
       <View className="flex-1 justify-center px-8">
-        <Text className="text-white text-3xl font-bold mb-2">Tracker</Text>
+        <Text className="text-white text-3xl font-bold mb-2">Ascend</Text>
         <Text className="text-gray-400 text-base mb-10">
           Sign in to your account
         </Text>

@@ -7,10 +7,10 @@ type ExpoConfigWithNewArch = ExpoConfig & {
 
 export default ({ config }: ConfigContext): ExpoConfigWithNewArch => ({
   ...config,
-  name: 'Tracker',
-  slug: 'tracker',
+  name: 'Ascend',
+  slug: 'ascend',
   version: '1.0.0',
-  scheme: 'tracker',
+  scheme: 'ascend',
   userInterfaceStyle: 'automatic',
   platforms: ['ios', 'android'],
   icon: './assets/icon.png',
@@ -21,10 +21,10 @@ export default ({ config }: ConfigContext): ExpoConfigWithNewArch => ({
   },
   ios: {
     supportsTablet: false,
-    bundleIdentifier: 'com.personal.tracker',
+    bundleIdentifier: 'com.personal.ascend',
   },
   android: {
-    package: 'com.personal.tracker',
+    package: 'com.personal.ascend',
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#0a0a0a',
