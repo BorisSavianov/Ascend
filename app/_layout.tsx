@@ -5,14 +5,17 @@ import { router, Slot } from 'expo-router';
 import * as Linking from 'expo-linking';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect, useRef } from 'react';
+import { AppState } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { supabase, auth } from '../lib/supabase';
 import OfflineBanner from '../components/OfflineBanner';
 import {
   requestNotificationPermissions,
   getStoredNotificationConfig,
-  scheduleAllReminders,
+  getStoredCustomReminders,
+  ensureDailyRemindersScheduled,
 } from '../lib/notifications';
+import { useAppStore } from '../store/useAppStore';
 
 // Keep splash screen visible until session check resolves
 void SplashScreen.preventAutoHideAsync();
@@ -50,7 +53,8 @@ export default function RootLayout() {
         const granted = await requestNotificationPermissions();
         if (granted) {
           const config = await getStoredNotificationConfig();
-          await scheduleAllReminders(config);
+          const custom = await getStoredCustomReminders();
+          await ensureDailyRemindersScheduled(config, custom);
         }
         router.replace('/(tabs)/log');
       } else {
@@ -65,6 +69,16 @@ export default function RootLayout() {
       void processDeepLinkUrl(url);
     });
 
+    const appStateSub = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active' || !isMounted.current) return;
+      void (async () => {
+        const granted = await requestNotificationPermissions();
+        if (!granted) return;
+        const { notificationConfig, customReminders } = useAppStore.getState();
+        await ensureDailyRemindersScheduled(notificationConfig, customReminders);
+      })();
+    });
+
     const { data: { subscription } } = auth.onAuthStateChange(
       (_event, session) => {
         if (!isMounted.current) return;
@@ -73,7 +87,8 @@ export default function RootLayout() {
             const granted = await requestNotificationPermissions();
             if (granted) {
               const config = await getStoredNotificationConfig();
-              await scheduleAllReminders(config);
+              const custom = await getStoredCustomReminders();
+              await ensureDailyRemindersScheduled(config, custom);
             }
             router.replace('/(tabs)/log');
           }).catch((err) => {
@@ -89,6 +104,7 @@ export default function RootLayout() {
     return () => {
       isMounted.current = false;
       linkingSub.remove();
+      appStateSub.remove();
       subscription.unsubscribe();
     };
   }, []);

@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { NotificationConfig } from '../constants/notifications';
-import { DEFAULT_NOTIFICATION_CONFIG } from '../constants/notifications';
+import type { CustomReminder, NotificationConfig } from '../constants/notifications';
+import { DEFAULT_CUSTOM_REMINDERS, DEFAULT_NOTIFICATION_CONFIG } from '../constants/notifications';
 
 export type MealItemDraft = {
   /** Local UUID used as list key — not the DB id */
@@ -37,11 +37,13 @@ export type AppStore = {
   calorieTarget: number;
   macroTargets: MacroTargets;
   notificationConfig: NotificationConfig;
+  customReminders: CustomReminder[];
   fastingTargetHours: number;
 
   setCalorieTarget: (kcal: number) => void;
   setMacroTargets: (targets: MacroTargets) => void;
   setNotificationConfig: (config: NotificationConfig) => void;
+  setCustomReminders: (reminders: CustomReminder[]) => void;
   setFastingTargetHours: (hours: number) => void;
 };
 
@@ -49,6 +51,7 @@ type PersistedSettings = {
   calorieTarget: number;
   macroTargets: MacroTargets;
   notificationConfig: NotificationConfig;
+  customReminders: CustomReminder[];
   fastingTargetHours: number;
 };
 
@@ -93,12 +96,14 @@ export const useAppStore = create<AppStore>()(
       calorieTarget: 2000,
       macroTargets: { protein: 160, fat: 80, carbs: 100 },
       notificationConfig: DEFAULT_NOTIFICATION_CONFIG,
+      customReminders: DEFAULT_CUSTOM_REMINDERS,
       fastingTargetHours: 16,
 
       setCalorieTarget: (kcal: number) => set({ calorieTarget: kcal }),
       setMacroTargets: (targets: MacroTargets) => set({ macroTargets: targets }),
       setNotificationConfig: (config: NotificationConfig) =>
         set({ notificationConfig: config }),
+      setCustomReminders: (reminders: CustomReminder[]) => set({ customReminders: reminders }),
       setFastingTargetHours: (hours: number) => set({ fastingTargetHours: hours }),
     }),
     {
@@ -107,11 +112,12 @@ export const useAppStore = create<AppStore>()(
         () => AsyncStorage as unknown as Storage,
       ),
       partialize: (state): PersistedSettings => ({
-        calorieTarget: state.calorieTarget,
-        macroTargets: state.macroTargets,
-        notificationConfig: state.notificationConfig,
-        fastingTargetHours: state.fastingTargetHours,
-      }),
+      calorieTarget: state.calorieTarget,
+      macroTargets: state.macroTargets,
+      notificationConfig: state.notificationConfig,
+      customReminders: state.customReminders,
+      fastingTargetHours: state.fastingTargetHours,
+    }),
     },
   ),
 );

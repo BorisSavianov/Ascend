@@ -25,8 +25,12 @@ import { useEndFast } from '../../hooks/useEndFast';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '../../store/useAppStore';
 import { auth } from '../../lib/supabase';
-import { scheduleAllReminders, saveNotificationConfig } from '../../lib/notifications';
-import type { NotificationConfig } from '../../constants/notifications';
+import {
+  scheduleAllReminders,
+  saveNotificationConfig,
+  saveCustomReminders,
+} from '../../lib/notifications';
+import type { CustomReminder, NotificationConfig } from '../../constants/notifications';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { triggerExport } from '../../lib/gemini';
@@ -417,16 +421,26 @@ const NOTIF_LABELS: Record<keyof NotificationConfig, string> = {
   meal_2_reminder: 'Second meal',
   fast_start: 'Start fast',
   morning_weight: 'Morning weight',
+  encouragement_reminder: 'Encouragement',
 };
 
 function NotificationsSection() {
   const storedConfig = useAppStore((s) => s.notificationConfig);
+  const storedCustomReminders = useAppStore((s) => s.customReminders);
   const setNotificationConfig = useAppStore((s) => s.setNotificationConfig);
+  const setCustomReminders = useAppStore((s) => s.setCustomReminders);
 
   const [config, setConfig] = useState<NotificationConfig>(storedConfig);
   const [pickerKey, setPickerKey] = useState<keyof NotificationConfig | null>(null);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState('');
+  const [customReminders, setCustomRemindersLocal] = useState<CustomReminder[]>(storedCustomReminders);
+  const [customTitle, setCustomTitle] = useState('');
+  const [customBody, setCustomBody] = useState('');
+  const [customGoal, setCustomGoal] = useState('');
+  const [customHour, setCustomHour] = useState('17');
+  const [customMinute, setCustomMinute] = useState('00');
+  const [customEnabled, setCustomEnabled] = useState(true);
 
   function updateEntry(
     key: keyof NotificationConfig,
@@ -448,8 +462,10 @@ function NotificationsSection() {
     setSaving(true);
     try {
       setNotificationConfig(config);
+      setCustomReminders(customReminders);
       await saveNotificationConfig(config);
-      await scheduleAllReminders(config);
+      await saveCustomReminders(customReminders);
+      await scheduleAllReminders(config, customReminders);
       setToast('Reminders saved.');
       setTimeout(() => setToast(''), 2500);
     } catch (err) {
@@ -457,6 +473,40 @@ function NotificationsSection() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function addCustomReminder() {
+    const hour = parseInt(customHour, 10);
+    const minute = parseInt(customMinute, 10);
+    if (isNaN(hour) || isNaN(minute)) return;
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return;
+
+    const title = customTitle.trim();
+    const body = customBody.trim();
+    if (!title || !body) return;
+
+    const nextReminder: CustomReminder = {
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      title,
+      body,
+      hour,
+      minute,
+      enabled: customEnabled,
+      goal: customGoal.trim(),
+    };
+
+    setCustomRemindersLocal((prev) => [...prev, nextReminder]);
+    setCustomTitle('');
+    setCustomBody('');
+    setCustomGoal('');
+  }
+
+  function updateCustomReminder(id: string, patch: Partial<CustomReminder>) {
+    setCustomRemindersLocal((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+  }
+
+  function removeCustomReminder(id: string) {
+    setCustomRemindersLocal((prev) => prev.filter((item) => item.id !== id));
   }
 
   const entries = Object.entries(config) as [
@@ -525,6 +575,96 @@ function NotificationsSection() {
           onPress={() => { void handleSave(); }}
           disabled={saving}
         />
+      </Card>
+
+      <SectionHeader title="Custom reminders" />
+      <Card>
+        <Text style={{ color: '#9ca3af', fontSize: 12, marginBottom: 12 }}>
+          Create daily reminders for your own goals. These are counted inside the 3-notification daily limit.
+        </Text>
+
+        <InputRow label="Title" value={customTitle} onChangeText={setCustomTitle} placeholder="Hydrate" />
+        <InputRow label="Message" value={customBody} onChangeText={setCustomBody} placeholder="Drink a glass of water." />
+        <InputRow label="Goal" value={customGoal} onChangeText={setCustomGoal} placeholder="Hydration" />
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+          <Text style={{ color: '#c4c9d4', fontSize: 14, width: 110 }}>Time</Text>
+          <TextInput
+            value={customHour}
+            onChangeText={setCustomHour}
+            keyboardType="number-pad"
+            style={{
+              backgroundColor: '#1f2937',
+              color: '#ffffff',
+              borderRadius: 8,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              fontSize: 14,
+              width: 60,
+              textAlign: 'center',
+            }}
+          />
+          <Text style={{ color: '#6b7280', fontSize: 13, marginHorizontal: 8 }}>:</Text>
+          <TextInput
+            value={customMinute}
+            onChangeText={setCustomMinute}
+            keyboardType="number-pad"
+            style={{
+              backgroundColor: '#1f2937',
+              color: '#ffffff',
+              borderRadius: 8,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              fontSize: 14,
+              width: 60,
+              textAlign: 'center',
+            }}
+          />
+          <Switch
+            value={customEnabled}
+            onValueChange={setCustomEnabled}
+            trackColor={{ false: '#374151', true: '#16a34a' }}
+            thumbColor={customEnabled ? '#22c55e' : '#6b7280'}
+          />
+        </View>
+
+        <PrimaryButton label="ADD CUSTOM REMINDER" onPress={addCustomReminder} />
+
+        {customReminders.length > 0 ? (
+          <View style={{ marginTop: 16 }}>
+            {customReminders.map((item) => (
+              <View
+                key={item.id}
+                style={{
+                  borderTopWidth: 1,
+                  borderTopColor: '#1f2937',
+                  paddingTop: 12,
+                  marginTop: 12,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <Switch
+                    value={item.enabled}
+                    onValueChange={(v) => updateCustomReminder(item.id, { enabled: v })}
+                    trackColor={{ false: '#374151', true: '#16a34a' }}
+                    thumbColor={item.enabled ? '#22c55e' : '#6b7280'}
+                  />
+                  <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '600', marginLeft: 10, flex: 1 }}>
+                    {item.title}
+                  </Text>
+                  <Pressable onPress={() => removeCustomReminder(item.id)} style={{ padding: 4 }}>
+                    <Text style={{ color: '#ef4444', fontSize: 12 }}>Delete</Text>
+                  </Pressable>
+                </View>
+                <Text style={{ color: '#9ca3af', fontSize: 12, marginBottom: 4 }}>
+                  {item.goal ? `${item.goal} · ` : ''}
+                  {String(item.hour).padStart(2, '0')}:{String(item.minute).padStart(2, '0')}
+                </Text>
+                <Text style={{ color: '#d1d5db', fontSize: 13 }}>{item.body}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
       </Card>
     </>
   );
