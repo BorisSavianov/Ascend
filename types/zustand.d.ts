@@ -6,6 +6,9 @@ declare module 'zustand' {
   type UseBoundStore<T> = {
     (): T;
     <U>(selector: (state: T) => U): U;
+    getState(): T;
+    setState(partial: Partial<T> | ((state: T) => Partial<T>), replace?: boolean): void;
+    subscribe(listener: (state: T, prevState: T) => void): () => void;
   };
 
   type Create = {
