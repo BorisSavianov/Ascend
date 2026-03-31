@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { router, Slot } from 'expo-router';
 import * as Linking from 'expo-linking';
 import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
+import * as SystemUI from 'expo-system-ui';
 import React, { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -16,6 +18,7 @@ import {
   ensureDailyRemindersScheduled,
 } from '../lib/notifications';
 import { useAppStore } from '../store/useAppStore';
+import { colors } from '../lib/theme';
 
 // Keep splash screen visible until session check resolves
 void SplashScreen.preventAutoHideAsync();
@@ -35,6 +38,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     isMounted.current = true;
+    void SystemUI.setBackgroundColorAsync(colors.bg.canvas);
 
     async function initAuth() {
       // Check if app was cold-started from a magic link and process tokens first
@@ -112,6 +116,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
+        <StatusBar style="light" />
         <OfflineBanner />
         <Slot />
       </QueryClientProvider>

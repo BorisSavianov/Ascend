@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Swipeable } from 'react-native-gesture-handler';
 import { calculateNutrition, formatCalories } from '../lib/calculations';
 import type { MealItemDraft } from '../store/useAppStore';
+import { colors, spacing, typography } from '../lib/theme';
 
 type Props = {
   item: MealItemDraft;
@@ -13,10 +15,8 @@ type Props = {
 
 export default function MealItemRow({ item, onAmountChange, onRemove }: Props) {
   const swipeableRef = useRef<Swipeable>(null);
-  // Controlled local state keeps the TextInput in sync when the store updates
   const [amountText, setAmountText] = useState(String(item.amountG));
 
-  // Sync when store updates amount from external sources (e.g. FoodChip increment)
   useEffect(() => {
     setAmountText(String(item.amountG));
   }, [item.amountG]);
@@ -44,11 +44,12 @@ export default function MealItemRow({ item, onAmountChange, onRemove }: Props) {
     _progress: Animated.AnimatedInterpolation<number>,
     dragX: Animated.AnimatedInterpolation<number>,
   ) {
-    const scale = dragX.interpolate({
-      inputRange: [-80, 0],
-      outputRange: [1, 0],
+    const iconTranslate = dragX.interpolate({
+      inputRange: [-104, 0],
+      outputRange: [0, 24],
       extrapolate: 'clamp',
     });
+
     return (
       <Pressable
         onPress={() => {
@@ -58,37 +59,89 @@ export default function MealItemRow({ item, onAmountChange, onRemove }: Props) {
         }}
         accessibilityRole="button"
         accessibilityLabel={`Delete ${item.foodName}`}
-        className="bg-red-600 justify-center items-center w-20"
+        style={{
+          width: 104,
+          backgroundColor: colors.semantic.danger,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
       >
-        <Animated.Text
-          style={{ transform: [{ scale }] }}
-          className="text-white font-semibold text-sm"
-        >
-          Delete
-        </Animated.Text>
+        <Animated.View style={{ alignItems: 'center', transform: [{ translateX: iconTranslate }] }}>
+          <Ionicons name="trash-outline" size={18} color={colors.bg.canvas} />
+          <Text
+            style={[
+              typography.caption,
+              {
+                color: colors.bg.canvas,
+                marginTop: spacing.xs,
+              },
+            ]}
+          >
+            Delete
+          </Text>
+        </Animated.View>
       </Pressable>
     );
   }
 
   return (
-    <Swipeable ref={swipeableRef} renderRightActions={renderRightActions}>
-      <View className="flex-row items-center bg-gray-900 px-4 py-3 border-b border-gray-800">
-        <Text className="flex-1 text-white text-base" numberOfLines={1}>
-          {item.foodName}
-        </Text>
-        <View className="flex-row items-center ml-2">
+    <Swipeable
+      ref={swipeableRef}
+      overshootRight={false}
+      rightThreshold={52}
+      friction={2}
+      renderRightActions={renderRightActions}
+    >
+      <View
+        style={{
+          minHeight: 72,
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md,
+          backgroundColor: colors.bg.surface,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border.subtle,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.md,
+        }}
+      >
+        <View style={{ flex: 1 }}>
+          <Text style={typography.body} numberOfLines={1}>
+            {item.foodName}
+          </Text>
+          <Text style={[typography.caption, { marginTop: spacing.xs }]}>
+            {formatCalories(nutrition.calories)} kcal
+          </Text>
+        </View>
+        <View
+          style={{
+            minWidth: 98,
+            borderRadius: 14,
+            borderWidth: 1,
+            borderColor: colors.border.default,
+            backgroundColor: colors.bg.input,
+            paddingHorizontal: spacing.md,
+            paddingVertical: spacing.sm,
+            alignItems: 'center',
+          }}
+        >
           <TextInput
             value={amountText}
             onChangeText={handleAmountChange}
             keyboardType="decimal-pad"
-            className="text-white text-base text-right bg-gray-800 rounded px-2 py-1 w-16"
+            style={[
+              typography.body,
+              {
+                color: colors.text.primary,
+                minWidth: 52,
+                textAlign: 'center',
+                fontVariant: ['tabular-nums'],
+              },
+            ]}
             selectTextOnFocus
           />
-          <Text className="text-gray-400 text-sm ml-1">g</Text>
+          <Text style={typography.caption}>grams</Text>
         </View>
-        <Text className="text-gray-300 text-base ml-4 w-16 text-right">
-          {formatCalories(nutrition.calories)}
-        </Text>
       </View>
     </Swipeable>
   );

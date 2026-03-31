@@ -1,16 +1,14 @@
 import React, { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import {
   ActivityIndicator,
   Alert,
   Pressable,
-  ScrollView,
   Switch,
   Text,
-  TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { format, subDays } from 'date-fns';
 import WeightSparkline from '../../components/WeightSparkline';
@@ -34,127 +32,26 @@ import type { CustomReminder, NotificationConfig } from '../../constants/notific
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { triggerExport } from '../../lib/gemini';
+import Screen from '../../components/ui/Screen';
+import AppHeader from '../../components/ui/AppHeader';
+import Surface from '../../components/ui/Surface';
+import TextField from '../../components/ui/TextField';
+import Button from '../../components/ui/Button';
+import ConfirmationSheet from '../../components/ui/ConfirmationSheet';
+import { colors, spacing, typography } from '../../lib/theme';
 
-// ── Section header ────────────────────────────────────────────────────────────
-
-function SectionHeader({ title }: { title: string }) {
+function SectionHeading({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
-    <Text
-      style={{
-        color: '#6b7280',
-        fontSize: 11,
-        fontWeight: '600',
-        letterSpacing: 1.2,
-        textTransform: 'uppercase',
-        marginTop: 24,
-        marginBottom: 10,
-        marginHorizontal: 16,
-      }}
-    >
-      {title}
-    </Text>
-  );
-}
-
-// ── Card wrapper ──────────────────────────────────────────────────────────────
-
-function Card({ children }: { children: React.ReactNode }) {
-  return (
-    <View
-      style={{
-        marginHorizontal: 16,
-        backgroundColor: '#111827',
-        borderRadius: 16,
-        padding: 16,
-      }}
-    >
-      {children}
-    </View>
-  );
-}
-
-// ── Input row ─────────────────────────────────────────────────────────────────
-
-function InputRow({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  unit,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (t: string) => void;
-  placeholder?: string;
-  unit?: string;
-}) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-      <Text style={{ color: '#c4c9d4', fontSize: 14, width: 110 }}>{label}</Text>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder ?? ''}
-        placeholderTextColor="#4b5563"
-        keyboardType="decimal-pad"
-        style={{
-          flex: 1,
-          backgroundColor: '#1f2937',
-          color: '#ffffff',
-          borderRadius: 8,
-          paddingHorizontal: 12,
-          paddingVertical: 8,
-          fontSize: 14,
-        }}
-      />
-      {unit ? (
-        <Text style={{ color: '#6b7280', fontSize: 13, marginLeft: 8, width: 24 }}>
-          {unit}
+    <View style={{ marginBottom: spacing.md }}>
+      <Text style={typography.h3}>{title}</Text>
+      {subtitle ? (
+        <Text style={[typography.caption, { marginTop: spacing.xs }]}>
+          {subtitle}
         </Text>
       ) : null}
     </View>
   );
 }
-
-// ── Primary button ────────────────────────────────────────────────────────────
-
-function PrimaryButton({
-  label,
-  onPress,
-  disabled,
-}: {
-  label: string;
-  onPress: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      style={({ pressed }) => ({
-        backgroundColor: disabled ? '#374151' : pressed ? '#16a34a' : '#22c55e',
-        borderRadius: 10,
-        paddingVertical: 12,
-        alignItems: 'center',
-        marginTop: 12,
-        opacity: disabled ? 0.5 : 1,
-      })}
-    >
-      <Text
-        style={{
-          color: disabled ? '#6b7280' : '#000000',
-          fontWeight: '700',
-          fontSize: 13,
-          letterSpacing: 0.8,
-        }}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
-// ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
   return (
@@ -166,6 +63,7 @@ export default function ProfileScreen() {
 
 function ProfileScreenContent() {
   const queryClient = useQueryClient();
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
 
   async function handleSignOut() {
     await auth.signOut();
@@ -173,52 +71,46 @@ function ProfileScreenContent() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#030712' }}>
-      <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
-        <Text
-          style={{
-            color: '#ffffff',
-            fontSize: 22,
-            fontWeight: '700',
-            marginTop: 16,
-            marginHorizontal: 16,
-          }}
-        >
-          Profile
-        </Text>
+    <Screen scroll contentContainerStyle={{ paddingBottom: 132 }}>
+      <AppHeader
+        title="Profile"
+        subtitle="Goals, fasting, reminders, and exports are grouped here with clearer hierarchy and calmer controls."
+      />
 
+      <View style={{ paddingHorizontal: spacing.xl, gap: spacing.xl }}>
         <BodyMetricsSection />
         <FastingSection />
         <TargetsSection />
         <NotificationsSection />
         <ExportSection />
+        <Surface>
+          <SectionHeading
+            title="Account"
+            subtitle="Destructive actions are kept isolated from the rest of the settings."
+          />
+          <Button
+            label="Sign out"
+            onPress={() => setConfirmSignOut(true)}
+            variant="destructive"
+          />
+        </Surface>
+      </View>
 
-        {/* Sign out */}
-        <View style={{ marginHorizontal: 16, marginTop: 24 }}>
-          <Pressable
-            onPress={() => { void handleSignOut(); }}
-            accessibilityRole="button"
-            accessibilityLabel="Sign out"
-            style={({ pressed }) => ({
-              borderWidth: 1,
-              borderColor: '#ef4444',
-              borderRadius: 10,
-              paddingVertical: 14,
-              alignItems: 'center',
-              opacity: pressed ? 0.7 : 1,
-            })}
-          >
-            <Text style={{ color: '#ef4444', fontWeight: '600', fontSize: 14 }}>Sign Out</Text>
-          </Pressable>
-        </View>
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
-    </SafeAreaView>
+      <ConfirmationSheet
+        visible={confirmSignOut}
+        title="Sign out of Ascend?"
+        description="You’ll need a new magic link to re-enter this account."
+        confirmLabel="Sign out"
+        tone="danger"
+        onCancel={() => setConfirmSignOut(false)}
+        onConfirm={() => {
+          setConfirmSignOut(false);
+          void handleSignOut();
+        }}
+      />
+    </Screen>
   );
 }
-
-// ── Section 1: Body Metrics ───────────────────────────────────────────────────
 
 function BodyMetricsSection() {
   const [weightText, setWeightText] = useState('');
@@ -228,7 +120,6 @@ function BodyMetricsSection() {
   const { data: metrics } = useBodyMetrics();
   const logMutation = useLogBodyMetrics();
 
-  // Last 14 days for sparkline
   const cutoff = format(subDays(new Date(), 13), 'yyyy-MM-dd');
   const sparklineData = metrics
     .filter((m) => m.weight_kg != null && m.recorded_at >= cutoff)
@@ -263,58 +154,58 @@ function BodyMetricsSection() {
   }
 
   return (
-    <>
-      <SectionHeader title="Body Metrics" />
-      <Card>
-        <InputRow label="Weight" value={weightText} onChangeText={setWeightText} placeholder="0.0" unit="kg" />
-        <InputRow label="Body fat" value={fatText} onChangeText={setFatText} placeholder="0.0" unit="%" />
-
-        {validationError ? (
-          <Text style={{ color: '#ef4444', fontSize: 12, marginTop: 4 }}>{validationError}</Text>
-        ) : null}
-
-        <PrimaryButton
-          label={logMutation.isPending ? 'SAVING…' : 'LOG METRICS'}
-          onPress={handleLog}
-          disabled={logMutation.isPending}
+    <Surface elevated>
+      <SectionHeading
+        title="Body metrics"
+        subtitle="Log weight and body fat, then keep an eye on the short-term trend."
+      />
+      <View style={{ gap: spacing.md }}>
+        <TextField
+          label="Weight"
+          value={weightText}
+          onChangeText={setWeightText}
+          placeholder="0.0"
+          unit="kg"
+          keyboardType="decimal-pad"
         />
+        <TextField
+          label="Body fat"
+          value={fatText}
+          onChangeText={setFatText}
+          placeholder="0.0"
+          unit="%"
+          keyboardType="decimal-pad"
+          error={validationError || null}
+        />
+        <Button
+          label="Log metrics"
+          onPress={handleLog}
+          loading={logMutation.isPending}
+        />
+      </View>
 
-        {sparklineData.length >= 2 ? (
-          <>
-            <View style={{ marginTop: 16 }}>
-              <WeightSparkline data={sparklineData} />
-            </View>
-            {firstWeight != null && lastWeight != null ? (
-              <Text style={{ color: '#c4c9d4', fontSize: 12, textAlign: 'center', marginTop: 6 }}>
-                {firstWeight.toFixed(1)} kg → {lastWeight.toFixed(1)} kg
-              </Text>
-            ) : null}
-          </>
-        ) : null}
-      </Card>
-    </>
+      {sparklineData.length >= 2 ? (
+        <View style={{ marginTop: spacing.xl }}>
+          <WeightSparkline data={sparklineData} />
+          {firstWeight != null && lastWeight != null ? (
+            <Text style={[typography.caption, { textAlign: 'center', marginTop: spacing.sm }]}>
+              {firstWeight.toFixed(1)} kg to {lastWeight.toFixed(1)} kg
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+    </Surface>
   );
 }
 
-// ── Section 2: Fasting ────────────────────────────────────────────────────────
-
 function FastingSection() {
   const { data: activeFast } = useActiveFast();
-  const { data: history } = useFastingHistory();
+  const { data: history = [] } = useFastingHistory();
   const startFast = useStartFast();
   const endFast = useEndFast();
   const fastingTargetHours = useAppStore((s) => s.fastingTargetHours);
   const setFastingTargetHours = useAppStore((s) => s.setFastingTargetHours);
   const [targetText, setTargetText] = useState(String(fastingTargetHours));
-
-  function handleStart() {
-    startFast.mutate();
-  }
-
-  function handleEnd() {
-    if (!activeFast) return;
-    endFast.mutate(activeFast.id);
-  }
 
   function handleTargetChange(text: string) {
     setTargetText(text);
@@ -326,49 +217,48 @@ function FastingSection() {
 
   return (
     <>
-      <SectionHeader title="Fasting" />
-      <Card>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-          <Text style={{ color: '#c4c9d4', fontSize: 14, flex: 1 }}>Fasting target</Text>
-          <TextInput
-            value={targetText}
-            onChangeText={handleTargetChange}
-            keyboardType="number-pad"
-            style={{
-              backgroundColor: '#1f2937',
-              color: '#ffffff',
-              borderRadius: 8,
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              fontSize: 14,
-              width: 60,
-              textAlign: 'center',
-            }}
-          />
-          <Text style={{ color: '#6b7280', fontSize: 13, marginLeft: 8 }}>h</Text>
-        </View>
-        <FastingTimer
-          activeFast={activeFast ?? null}
-          targetHours={fastingTargetHours}
-          onStart={handleStart}
-          onEnd={handleEnd}
-          isStarting={startFast.isPending}
-          isEnding={endFast.isPending}
+      <Surface elevated overlay>
+        <SectionHeading
+          title="Fasting"
+          subtitle="A stronger focal point for your current fast, target, and progression."
         />
-      </Card>
+        <TextField
+          label="Target"
+          value={targetText}
+          onChangeText={handleTargetChange}
+          keyboardType="number-pad"
+          unit="hours"
+        />
+        <View style={{ marginTop: spacing.lg }}>
+          <FastingTimer
+            activeFast={activeFast ?? null}
+            targetHours={fastingTargetHours}
+            onStart={() => startFast.mutate()}
+            onEnd={() => {
+              if (activeFast) endFast.mutate(activeFast.id);
+            }}
+            isStarting={startFast.isPending}
+            isEnding={endFast.isPending}
+          />
+        </View>
+      </Surface>
 
       {history.length > 0 ? (
-        <View style={{ marginHorizontal: 16, marginTop: 8 }}>
+        <Surface style={{ padding: 0, overflow: 'hidden' }}>
+          <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
+            <SectionHeading
+              title="Recent fasting history"
+              subtitle="Completed and interrupted fasts over your recent log."
+            />
+          </View>
           {history.map((fast) => (
             <FastingHistoryRow key={fast.id} fast={fast} />
           ))}
-        </View>
+        </Surface>
       ) : null}
     </>
   );
 }
-
-// ── Section 3: Targets ────────────────────────────────────────────────────────
 
 function TargetsSection() {
   const calorieTarget = useAppStore((s) => s.calorieTarget);
@@ -397,24 +287,23 @@ function TargetsSection() {
   }
 
   return (
-    <>
-      <SectionHeader title="Targets" />
-      <Card>
-        <InputRow label="Calories" value={kcalText} onChangeText={setKcalText} unit="kcal" />
-        <InputRow label="Protein" value={proteinText} onChangeText={setProteinText} unit="g" />
-        <InputRow label="Fat" value={fatText} onChangeText={setFatText} unit="g" />
-        <InputRow label="Carbs" value={carbsText} onChangeText={setCarbsText} unit="g" />
-
-        <PrimaryButton
-          label={saved ? 'SAVED ✓' : 'SAVE TARGETS'}
-          onPress={handleSave}
-        />
-      </Card>
-    </>
+    <Surface>
+      <SectionHeading
+        title="Targets"
+        subtitle="Keep your calorie and macro goals in one compact settings block."
+      />
+      <View style={{ gap: spacing.md }}>
+        <TextField label="Calories" value={kcalText} onChangeText={setKcalText} unit="kcal" keyboardType="number-pad" />
+        <View style={{ flexDirection: 'row', gap: spacing.md }}>
+          <TextField label="Protein" value={proteinText} onChangeText={setProteinText} unit="g" keyboardType="number-pad" style={{ flex: 1 }} />
+          <TextField label="Fat" value={fatText} onChangeText={setFatText} unit="g" keyboardType="number-pad" style={{ flex: 1 }} />
+          <TextField label="Carbs" value={carbsText} onChangeText={setCarbsText} unit="g" keyboardType="number-pad" style={{ flex: 1 }} />
+        </View>
+        <Button label={saved ? 'Saved' : 'Save targets'} onPress={handleSave} />
+      </View>
+    </Surface>
   );
 }
-
-// ── Section 4: Notifications ──────────────────────────────────────────────────
 
 const NOTIF_LABELS: Record<keyof NotificationConfig, string> = {
   meal_1_reminder: 'First meal',
@@ -468,7 +357,7 @@ function NotificationsSection() {
       await scheduleAllReminders(config, customReminders);
       setToast('Reminders saved.');
       setTimeout(() => setToast(''), 2500);
-    } catch (err) {
+    } catch (_err) {
       Alert.alert('Error', 'Failed to schedule reminders.');
     } finally {
       setSaving(false);
@@ -516,174 +405,147 @@ function NotificationsSection() {
 
   return (
     <>
-      <SectionHeader title="Notifications" />
-      <Card>
-        {entries.map(([key, value]) => (
-          <View
-            key={key}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingVertical: 10,
-              borderBottomWidth: 1,
-              borderBottomColor: '#1f2937',
-            }}
-          >
-            <Switch
-              value={value.enabled}
-              onValueChange={(v) => updateEntry(key, { enabled: v })}
-              trackColor={{ false: '#374151', true: '#16a34a' }}
-              thumbColor={value.enabled ? '#22c55e' : '#6b7280'}
-            />
-            <Text style={{ color: '#d1d5db', fontSize: 14, flex: 1, marginLeft: 12 }}>
-              {NOTIF_LABELS[key]}
-            </Text>
-            <Pressable
-              onPress={() => setPickerKey(pickerKey === key ? null : key)}
-              style={{ paddingHorizontal: 8, paddingVertical: 4 }}
-            >
-              <Text style={{ color: '#22c55e', fontSize: 14, fontVariant: ['tabular-nums'] }}>
-                {String(value.hour).padStart(2, '0')}:{String(value.minute).padStart(2, '0')}
-              </Text>
-            </Pressable>
-          </View>
-        ))}
-
-        {pickerKey != null ? (
-          <DateTimePicker
-            value={timeDate(config[pickerKey].hour, config[pickerKey].minute)}
-            mode="time"
-            is24Hour
-            display="spinner"
-            onChange={(_event: DateTimePickerEvent, date?: Date) => {
-              if (date && pickerKey) {
-                updateEntry(pickerKey, { hour: date.getHours(), minute: date.getMinutes() });
-              }
-              setPickerKey(null);
-            }}
-          />
-        ) : null}
-
-        {toast ? (
-          <Text style={{ color: '#22c55e', fontSize: 13, textAlign: 'center', marginTop: 10 }}>
-            {toast}
-          </Text>
-        ) : null}
-
-        <PrimaryButton
-          label={saving ? 'SAVING…' : 'SAVE REMINDERS'}
-          onPress={() => { void handleSave(); }}
-          disabled={saving}
+      <Surface>
+        <SectionHeading
+          title="Notifications"
+          subtitle="Keep the defaults, but make times and enablement easier to scan."
         />
-      </Card>
+        <View style={{ gap: spacing.md }}>
+          {entries.map(([key, value]) => (
+            <View
+              key={key}
+              style={{
+                paddingVertical: spacing.md,
+                borderBottomWidth: 1,
+                borderBottomColor: colors.border.subtle,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+                <Switch
+                  value={value.enabled}
+                  onValueChange={(v) => updateEntry(key, { enabled: v })}
+                  trackColor={{ false: colors.border.strong, true: colors.accent.primary }}
+                  thumbColor={value.enabled ? colors.text.primary : colors.text.tertiary}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={typography.bodySm}>{NOTIF_LABELS[key]}</Text>
+                  <Text style={[typography.caption, { marginTop: spacing.xs }]}>
+                    Daily reminder
+                  </Text>
+                </View>
+                <Pressable onPress={() => setPickerKey(pickerKey === key ? null : key)}>
+                  <Text style={[typography.label, { color: colors.accent.primary }]}>
+                    {String(value.hour).padStart(2, '0')}:{String(value.minute).padStart(2, '0')}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          ))}
 
-      <SectionHeader title="Custom reminders" />
-      <Card>
-        <Text style={{ color: '#9ca3af', fontSize: 12, marginBottom: 12 }}>
-          Create daily reminders for your own goals. These are counted inside the 3-notification daily limit.
-        </Text>
+          {pickerKey != null ? (
+            <DateTimePicker
+              value={timeDate(config[pickerKey].hour, config[pickerKey].minute)}
+              mode="time"
+              is24Hour
+              display="spinner"
+              onChange={(_event: DateTimePickerEvent, date?: Date) => {
+                if (date && pickerKey) {
+                  updateEntry(pickerKey, { hour: date.getHours(), minute: date.getMinutes() });
+                }
+                setPickerKey(null);
+              }}
+            />
+          ) : null}
 
-        <InputRow label="Title" value={customTitle} onChangeText={setCustomTitle} placeholder="Hydrate" />
-        <InputRow label="Message" value={customBody} onChangeText={setCustomBody} placeholder="Drink a glass of water." />
-        <InputRow label="Goal" value={customGoal} onChangeText={setCustomGoal} placeholder="Hydration" />
+          {toast ? (
+            <Text style={[typography.caption, { color: colors.semantic.success }]}>
+              {toast}
+            </Text>
+          ) : null}
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-          <Text style={{ color: '#c4c9d4', fontSize: 14, width: 110 }}>Time</Text>
-          <TextInput
-            value={customHour}
-            onChangeText={setCustomHour}
-            keyboardType="number-pad"
-            style={{
-              backgroundColor: '#1f2937',
-              color: '#ffffff',
-              borderRadius: 8,
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              fontSize: 14,
-              width: 60,
-              textAlign: 'center',
-            }}
-          />
-          <Text style={{ color: '#6b7280', fontSize: 13, marginHorizontal: 8 }}>:</Text>
-          <TextInput
-            value={customMinute}
-            onChangeText={setCustomMinute}
-            keyboardType="number-pad"
-            style={{
-              backgroundColor: '#1f2937',
-              color: '#ffffff',
-              borderRadius: 8,
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              fontSize: 14,
-              width: 60,
-              textAlign: 'center',
-            }}
-          />
-          <Switch
-            value={customEnabled}
-            onValueChange={setCustomEnabled}
-            trackColor={{ false: '#374151', true: '#16a34a' }}
-            thumbColor={customEnabled ? '#22c55e' : '#6b7280'}
-          />
+          <Button label="Save reminders" onPress={() => { void handleSave(); }} loading={saving} />
+        </View>
+      </Surface>
+
+      <Surface>
+        <SectionHeading
+          title="Custom reminders"
+          subtitle="Create your own daily prompts while staying inside the app’s reminder limit."
+        />
+
+        <View style={{ gap: spacing.md }}>
+          <TextField label="Title" value={customTitle} onChangeText={setCustomTitle} placeholder="Hydrate" />
+          <TextField label="Message" value={customBody} onChangeText={setCustomBody} placeholder="Drink a glass of water." />
+          <TextField label="Goal" value={customGoal} onChangeText={setCustomGoal} placeholder="Hydration" />
+          <View style={{ flexDirection: 'row', gap: spacing.md }}>
+            <TextField label="Hour" value={customHour} onChangeText={setCustomHour} keyboardType="number-pad" style={{ flex: 1 }} />
+            <TextField label="Minute" value={customMinute} onChangeText={setCustomMinute} keyboardType="number-pad" style={{ flex: 1 }} />
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={typography.bodySm}>Enabled</Text>
+            <Switch
+              value={customEnabled}
+              onValueChange={setCustomEnabled}
+              trackColor={{ false: colors.border.strong, true: colors.accent.primary }}
+              thumbColor={customEnabled ? colors.text.primary : colors.text.tertiary}
+            />
+          </View>
+          <Button label="Add custom reminder" onPress={addCustomReminder} variant="secondary" />
         </View>
 
-        <PrimaryButton label="ADD CUSTOM REMINDER" onPress={addCustomReminder} />
-
         {customReminders.length > 0 ? (
-          <View style={{ marginTop: 16 }}>
+          <View style={{ marginTop: spacing.xl, gap: spacing.md }}>
             {customReminders.map((item) => (
               <View
                 key={item.id}
                 style={{
                   borderTopWidth: 1,
-                  borderTopColor: '#1f2937',
-                  paddingTop: 12,
-                  marginTop: 12,
+                  borderTopColor: colors.border.subtle,
+                  paddingTop: spacing.lg,
                 }}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
                   <Switch
                     value={item.enabled}
                     onValueChange={(v) => updateCustomReminder(item.id, { enabled: v })}
-                    trackColor={{ false: '#374151', true: '#16a34a' }}
-                    thumbColor={item.enabled ? '#22c55e' : '#6b7280'}
+                    trackColor={{ false: colors.border.strong, true: colors.accent.primary }}
+                    thumbColor={item.enabled ? colors.text.primary : colors.text.tertiary}
                   />
-                  <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '600', marginLeft: 10, flex: 1 }}>
-                    {item.title}
-                  </Text>
-                  <Pressable onPress={() => removeCustomReminder(item.id)} style={{ padding: 4 }}>
-                    <Text style={{ color: '#ef4444', fontSize: 12 }}>Delete</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={typography.bodySm}>{item.title}</Text>
+                    <Text style={[typography.caption, { marginTop: spacing.xs }]}>
+                      {item.goal ? `${item.goal} · ` : ''}
+                      {String(item.hour).padStart(2, '0')}:{String(item.minute).padStart(2, '0')}
+                    </Text>
+                  </View>
+                  <Pressable onPress={() => removeCustomReminder(item.id)}>
+                    <Ionicons name="trash-outline" size={18} color={colors.semantic.danger} />
                   </Pressable>
                 </View>
-                <Text style={{ color: '#9ca3af', fontSize: 12, marginBottom: 4 }}>
-                  {item.goal ? `${item.goal} · ` : ''}
-                  {String(item.hour).padStart(2, '0')}:{String(item.minute).padStart(2, '0')}
+                <Text style={[typography.bodySm, { marginTop: spacing.sm }]}>
+                  {item.body}
                 </Text>
-                <Text style={{ color: '#d1d5db', fontSize: 13 }}>{item.body}</Text>
               </View>
             ))}
           </View>
         ) : null}
-      </Card>
+      </Surface>
     </>
   );
 }
-
-// ── Section 5: Export ─────────────────────────────────────────────────────────
 
 function ExportSection() {
   const [exportingMd, setExportingMd] = useState(false);
   const [exportingCsv, setExportingCsv] = useState(false);
 
-  async function handleExport(format: 'markdown' | 'csv') {
-    const setExporting = format === 'markdown' ? setExportingMd : setExportingCsv;
-    const filename = format === 'markdown' ? 'nutrition-export.md' : 'nutrition-export.csv';
-    const mimeType = format === 'markdown' ? 'text/markdown' : 'text/csv';
+  async function handleExport(formatType: 'markdown' | 'csv') {
+    const setExporting = formatType === 'markdown' ? setExportingMd : setExportingCsv;
+    const filename = formatType === 'markdown' ? 'nutrition-export.md' : 'nutrition-export.csv';
+    const mimeType = formatType === 'markdown' ? 'text/markdown' : 'text/csv';
 
     setExporting(true);
     try {
-      const blob = await triggerExport(format, 30);
+      const blob = await triggerExport(formatType, 30);
       const text = await blob.text();
 
       const dir = FileSystem.cacheDirectory;
@@ -702,47 +564,60 @@ function ExportSection() {
   }
 
   return (
-    <>
-      <SectionHeader title="Export" />
-      <Card>
-        <Pressable
+    <Surface>
+      <SectionHeading
+        title="Export"
+        subtitle="Share a snapshot of the last 30 days in Markdown or CSV format."
+      />
+      <View style={{ gap: spacing.md }}>
+        <PressableExport
+          label="Export Markdown"
+          loading={exportingMd}
+          disabled={exportingCsv}
           onPress={() => { void handleExport('markdown'); }}
-          disabled={exportingMd || exportingCsv}
-          style={({ pressed }) => ({
-            borderWidth: 1,
-            borderColor: exportingMd ? '#22c55e' : '#374151',
-            borderRadius: 10,
-            paddingVertical: 12,
-            alignItems: 'center',
-            marginBottom: 8,
-            opacity: exportingCsv ? 0.4 : pressed ? 0.7 : 1,
-          })}
-        >
-          {exportingMd ? (
-            <ActivityIndicator size="small" color="#22c55e" />
-          ) : (
-            <Text style={{ color: '#d1d5db', fontSize: 13 }}>Export Markdown</Text>
-          )}
-        </Pressable>
-        <Pressable
+        />
+        <PressableExport
+          label="Export CSV"
+          loading={exportingCsv}
+          disabled={exportingMd}
           onPress={() => { void handleExport('csv'); }}
-          disabled={exportingMd || exportingCsv}
-          style={({ pressed }) => ({
-            borderWidth: 1,
-            borderColor: exportingCsv ? '#22c55e' : '#374151',
-            borderRadius: 10,
-            paddingVertical: 12,
-            alignItems: 'center',
-            opacity: exportingMd ? 0.4 : pressed ? 0.7 : 1,
-          })}
-        >
-          {exportingCsv ? (
-            <ActivityIndicator size="small" color="#22c55e" />
-          ) : (
-            <Text style={{ color: '#d1d5db', fontSize: 13 }}>Export CSV</Text>
-          )}
-        </Pressable>
-      </Card>
-    </>
+        />
+      </View>
+    </Surface>
+  );
+}
+
+function PressableExport({
+  label,
+  loading,
+  disabled,
+  onPress,
+}: {
+  label: string;
+  loading: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled || loading}
+      style={{
+        minHeight: 52,
+        borderWidth: 1,
+        borderColor: loading ? colors.accent.primary : colors.border.default,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.bg.surfaceRaised,
+        opacity: disabled ? 0.45 : 1,
+      }}
+    >
+      {loading ? (
+        <ActivityIndicator size="small" color={colors.accent.primary} />
+      ) : (
+        <Text style={typography.bodySm}>{label}</Text>
+      )}
+    </Pressable>
   );
 }

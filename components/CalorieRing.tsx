@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { Text, View } from 'react-native';
 import { PolarChart, Pie } from 'victory-native';
+import { colors, metricStyle, spacing, typography } from '../lib/theme';
 
 type Props = {
   consumed: number;
@@ -8,15 +9,25 @@ type Props = {
   size?: number;
 };
 
-export default function CalorieRing({ consumed, target, size = 180 }: Props) {
+export default function CalorieRing({ consumed, target, size = 188 }: Props) {
   const isOver = consumed >= target;
-  const remaining = isOver ? 0 : target - consumed;
+  const remaining = Math.max(target - consumed, 0);
 
-  const data = isOver
-    ? [{ label: 'consumed', value: 1, color: '#ef4444' }]
+  const data: { label: string; value: number; color: string }[] = isOver
+    ? [
+        { label: 'consumed', value: Math.max(consumed, 1), color: colors.semantic.warning },
+      ]
     : [
-        { label: 'consumed', value: consumed > 0 ? consumed : 0.001, color: '#22c55e' },
-        { label: 'remaining', value: remaining, color: '#1f2937' },
+        {
+          label: 'consumed',
+          value: consumed > 0 ? consumed : 0.001,
+          color: colors.accent.primary,
+        },
+        {
+          label: 'remaining',
+          value: Math.max(remaining, 0.001),
+          color: colors.bg.surfaceRaised,
+        },
       ];
 
   return (
@@ -28,42 +39,33 @@ export default function CalorieRing({ consumed, target, size = 180 }: Props) {
         colorKey="color"
         containerStyle={{ width: size, height: size }}
       >
-        <Pie.Chart innerRadius="60%">
+        <Pie.Chart innerRadius="72%">
           {() => <Pie.Slice />}
         </Pie.Chart>
       </PolarChart>
 
-      {/* Centre text overlay */}
       <View
         style={{
           position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
+          inset: 0,
           alignItems: 'center',
           justifyContent: 'center',
+          paddingHorizontal: spacing.lg,
         }}
         pointerEvents="none"
       >
+        <Text style={metricStyle('lg')}>{Math.round(consumed)}</Text>
+        <Text style={typography.caption}>consumed kcal</Text>
         <Text
-          style={{
-            color: isOver ? '#ef4444' : '#ffffff',
-            fontSize: size * 0.22,
-            fontWeight: '700',
-            lineHeight: size * 0.26,
-          }}
+          style={[
+            typography.bodySm,
+            {
+              marginTop: spacing.sm,
+              color: isOver ? colors.semantic.warning : colors.text.secondary,
+            },
+          ]}
         >
-          {Math.round(consumed)}
-        </Text>
-        <Text
-          style={{
-            color: '#6b7280',
-            fontSize: size * 0.09,
-            marginTop: 2,
-          }}
-        >
-          kcal
+          {isOver ? `${Math.round(consumed - target)} over target` : `${Math.round(remaining)} remaining`}
         </Text>
       </View>
     </View>

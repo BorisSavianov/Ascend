@@ -57,9 +57,9 @@ export const NOTIFICATION_MESSAGES: Record<NotificationId, { title: string; body
 };
 
 export const ENCOURAGEMENT_MESSAGES = [
-  'Small steps compound. Log the next meal and keep moving.',
-  'Consistency beats intensity. One clean choice at a time.',
-  'You do not need perfect days, just the next right action.',
-  'Stay steady. The boring days are the ones that build the result.',
-  'Momentum matters. One reminder is enough to reset the day.',
+  `Don't be a bitch, do the work.`,
+  `Don't break your fast now. Stay hard`,
+  'FOCUS. DISCIPLINE. RESULTS.',
+  'Remember what you promised yourself.',
+  'You will ascend. Do not stop now.',
 ] as const;

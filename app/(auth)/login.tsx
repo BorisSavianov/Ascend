@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
 import * as Linking from 'expo-linking';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
+import Screen from '../../components/ui/Screen';
+import Surface from '../../components/ui/Surface';
+import Button from '../../components/ui/Button';
+import TextField from '../../components/ui/TextField';
+import { colors, spacing, typography } from '../../lib/theme';
 
-// SupabaseAuthClient inherits GoTrueClient methods at runtime but the bundled
-// type declaration omits them. Use a minimal local interface for the OTP call.
 type AuthWithOtp = {
   signInWithOtp: (creds: {
     email: string;
@@ -20,8 +20,6 @@ type AuthWithOtp = {
   }) => Promise<{ error: { message: string } | null }>;
 };
 
-// In Expo Go (__DEV__), use the exp:// URL so deep links work without a build.
-// In production builds, use the custom ascend:// scheme.
 const redirectTo = __DEV__
   ? Linking.createURL('')
   : Linking.createURL('', { scheme: 'ascend' });
@@ -32,12 +30,10 @@ export default function LoginScreen() {
   const [sent, setSent] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-
   async function handleSendLink() {
     const trimmed = email.trim();
     if (!trimmed) return;
 
-    // Basic email format validation before hitting the API
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(trimmed)) {
       setErrorMsg('Please enter a valid email address.');
@@ -48,7 +44,7 @@ export default function LoginScreen() {
     setErrorMsg(null);
 
     const { error } = await (supabase.auth as unknown as AuthWithOtp).signInWithOtp({
-      email: email.trim(),
+      email: trimmed,
       options: { emailRedirectTo: redirectTo },
     });
 
@@ -61,61 +57,102 @@ export default function LoginScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      className="flex-1 bg-gray-950"
-    >
-      <View className="flex-1 justify-center px-8">
-        <Text className="text-white text-3xl font-bold mb-2">Ascend</Text>
-        <Text className="text-gray-400 text-base mb-10">
-          Sign in to your account
-        </Text>
+    <Screen>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <View
+          style={{
+            flex: 1,
+            justifyContent: 'center',
+            paddingHorizontal: spacing.xl,
+          }}
+        >
+          <View
+            style={{
+              position: 'absolute',
+              top: 140,
+              left: -40,
+              width: 180,
+              height: 180,
+              borderRadius: 90,
+              backgroundColor: colors.accent.primaryMuted,
+            }}
+          />
+          <View
+            style={{
+              position: 'absolute',
+              bottom: 120,
+              right: -50,
+              width: 220,
+              height: 220,
+              borderRadius: 110,
+              backgroundColor: 'rgba(108, 182, 255, 0.08)',
+            }}
+          />
 
-        {sent ? (
-          <View className="bg-green-900 border border-green-700 rounded-xl p-4">
-            <Text className="text-green-300 text-base text-center">
-              Check your email for a login link.
+          <View style={{ marginBottom: spacing['3xl'] }}>
+            <Text style={typography.display}>Ascend</Text>
+            <Text style={[typography.body, { marginTop: spacing.sm, maxWidth: 280 }]}>
+              Focused nutrition tracking with calmer visuals, clearer hierarchy, and a cleaner daily rhythm.
             </Text>
           </View>
-        ) : (
-          <>
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="your@email.com"
-              placeholderTextColor="#6b7280"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              accessibilityLabel="Email address"
-              className="bg-gray-800 text-white rounded-xl px-4 py-4 text-base mb-4"
-            />
 
-            {errorMsg ? (
-              <Text className="text-red-400 text-sm mb-4">{errorMsg}</Text>
-            ) : null}
-
-            <Pressable
-              onPress={() => { void handleSendLink(); }}
-              disabled={loading || !email.trim()}
-              accessibilityRole="button"
-              accessibilityLabel="Send login link"
-              accessibilityState={{ disabled: loading || !email.trim() }}
-              className={`rounded-xl py-4 items-center ${
-                loading || !email.trim() ? 'bg-gray-700' : 'bg-green-600'
-              }`}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text className="text-white font-semibold text-base">
-                  Send Login Link
+          <Surface elevated overlay>
+            {sent ? (
+              <View>
+                <Text style={typography.h2}>Check your inbox</Text>
+                <Text style={[typography.bodySm, { marginTop: spacing.sm }]}>
+                  Your sign-in link is on its way. Open it on this device to continue into the app.
                 </Text>
-              )}
-            </Pressable>
-          </>
-        )}
-      </View>
-    </KeyboardAvoidingView>
+                <View
+                  style={{
+                    marginTop: spacing.xl,
+                    padding: spacing.lg,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: colors.semantic.success,
+                    backgroundColor: 'rgba(71, 201, 126, 0.12)',
+                  }}
+                >
+                  <Text style={[typography.bodySm, { color: colors.semantic.success }]}>
+                    Sent to {email.trim()}
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View style={{ gap: spacing.lg }}>
+                <View>
+                  <Text style={typography.h2}>Sign in</Text>
+                  <Text style={[typography.bodySm, { marginTop: spacing.sm }]}>
+                    Enter your email and we’ll send a secure magic link.
+                  </Text>
+                </View>
+
+                <TextField
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="you@example.com"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  accessibilityLabel="Email address"
+                  error={errorMsg}
+                  label="Email address"
+                />
+
+                <Button
+                  label="Send login link"
+                  onPress={() => { void handleSendLink(); }}
+                  disabled={!email.trim()}
+                  loading={loading}
+                />
+              </View>
+            )}
+          </Surface>
+        </View>
+      </KeyboardAvoidingView>
+    </Screen>
   );
 }

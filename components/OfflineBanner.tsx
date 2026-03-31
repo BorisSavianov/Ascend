@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, View } from 'react-native';
 import { useNetworkStatus } from '../lib/supabase';
+import { colors, spacing, typography } from '../lib/theme';
 
 export default function OfflineBanner() {
   const isOnline = useNetworkStatus();
@@ -8,8 +9,15 @@ export default function OfflineBanner() {
   if (isOnline) return null;
 
   return (
-    <View className="bg-amber-500 px-4 py-2 items-center">
-      <Text className="text-black text-xs font-medium">
+    <View
+      style={{
+        backgroundColor: colors.semantic.warning,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.sm,
+        alignItems: 'center',
+      }}
+    >
+      <Text style={[typography.caption, { color: colors.bg.canvas }]}>
         You're offline. Showing cached data.
       </Text>
     </View>

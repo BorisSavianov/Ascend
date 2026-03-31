@@ -1,10 +1,12 @@
 import React from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import type { ExerciseRow } from '../types/database';
+import { colors, spacing, typography } from '../lib/theme';
 
 type Props = {
   exercise: ExerciseRow;
@@ -42,24 +44,56 @@ export default function ExerciseRowComponent({ exercise }: Props) {
   }
 
   return (
-    <View className="flex-row items-center bg-gray-900 px-4 py-3 border-b border-gray-800">
-      <View className="flex-1">
-        <Text className="text-white text-base">{exercise.name}</Text>
-        <Text className="text-gray-400 text-xs mt-0.5">
-          {exercise.duration_min != null ? `${exercise.duration_min} min` : ''}
+    <View
+      style={{
+        minHeight: 64,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.md,
+        backgroundColor: colors.bg.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.subtle,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
+      }}
+    >
+      <View
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 20,
+          backgroundColor: colors.accent.primaryMuted,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Ionicons name="barbell-outline" size={18} color={colors.accent.primary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={typography.body}>{exercise.name}</Text>
+        <Text style={[typography.caption, { marginTop: spacing.xs }]}>
+          {exercise.duration_min != null ? `${exercise.duration_min} min` : 'Logged activity'}
         </Text>
       </View>
-      <Text className="text-orange-400 font-semibold text-base mr-4">
-        −{exercise.calories_burned ?? 0} kcal
+      <Text
+        style={[
+          typography.label,
+          {
+            color: colors.semantic.warning,
+            fontVariant: ['tabular-nums'],
+          },
+        ]}
+      >
+        -{exercise.calories_burned ?? 0} kcal
       </Text>
       <Pressable
         onPress={handleDelete}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         accessibilityRole="button"
         accessibilityLabel={`Delete ${exercise.name}`}
-        style={{ padding: 6 }}
+        style={{ padding: 4 }}
       >
-        <Text className="text-gray-500 text-lg">✕</Text>
+        <Ionicons name="trash-outline" size={18} color={colors.text.tertiary} />
       </Pressable>
     </View>
   );

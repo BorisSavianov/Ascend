@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { Text, View } from 'react-native';
+import { colors, spacing, typography } from '../lib/theme';
 
 type Props = {
   proteinG: number;
@@ -8,57 +9,39 @@ type Props = {
   targets?: { protein: number; fat: number; carbs: number };
 };
 
-// Calorie contributions
-const PROTEIN_KCAL = 4;
-const FAT_KCAL = 9;
-const CARBS_KCAL = 4;
-
-// Colours
-const PROTEIN_COLOR = '#f59e0b'; // warm amber
-const FAT_COLOR = '#6b83a6';     // slate blue
-const CARBS_COLOR = '#6ba87a';   // sage green
+const PROTEIN_COLOR = colors.semantic.warning;
+const FAT_COLOR = colors.semantic.info;
+const CARBS_COLOR = colors.semantic.success;
 
 export default function MacroBar({ proteinG, fatG, carbsG, targets }: Props) {
-  const proteinKcal = proteinG * PROTEIN_KCAL;
-  const fatKcal = fatG * FAT_KCAL;
-  const carbsKcal = carbsG * CARBS_KCAL;
+  const proteinKcal = proteinG * 4;
+  const fatKcal = fatG * 9;
+  const carbsKcal = carbsG * 4;
   const total = proteinKcal + fatKcal + carbsKcal;
 
-  const proteinPct = total > 0 ? (proteinKcal / total) * 100 : 33.3;
-  const fatPct = total > 0 ? (fatKcal / total) * 100 : 33.3;
-  const carbsPct = total > 0 ? (carbsKcal / total) * 100 : 33.4;
+  const proteinPct = total > 0 ? proteinKcal / total : 0.33;
+  const carbsPct = total > 0 ? carbsKcal / total : 0.33;
+  const fatPct = total > 0 ? fatKcal / total : 0.34;
 
   return (
-    <View className="w-full">
-      {/* Segmented bar */}
+    <View style={{ width: '100%' }}>
       <View
-        style={{ flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden' }}
+        style={{
+          flexDirection: 'row',
+          height: 10,
+          borderRadius: 999,
+          overflow: 'hidden',
+          backgroundColor: colors.bg.surfaceRaised,
+        }}
       >
         <View style={{ flex: proteinPct, backgroundColor: PROTEIN_COLOR }} />
         <View style={{ flex: carbsPct, backgroundColor: CARBS_COLOR }} />
         <View style={{ flex: fatPct, backgroundColor: FAT_COLOR }} />
       </View>
-
-      {/* Labels row */}
-      <View style={{ flexDirection: 'row', marginTop: 8 }}>
-        <MacroLabel
-          label="Protein"
-          grams={proteinG}
-          target={targets?.protein}
-          color={PROTEIN_COLOR}
-        />
-        <MacroLabel
-          label="Carbs"
-          grams={carbsG}
-          target={targets?.carbs}
-          color={CARBS_COLOR}
-        />
-        <MacroLabel
-          label="Fat"
-          grams={fatG}
-          target={targets?.fat}
-          color={FAT_COLOR}
-        />
+      <View style={{ flexDirection: 'row', marginTop: spacing.md, gap: spacing.md }}>
+        <MacroLabel label="Protein" grams={proteinG} target={targets?.protein} color={PROTEIN_COLOR} />
+        <MacroLabel label="Carbs" grams={carbsG} target={targets?.carbs} color={CARBS_COLOR} />
+        <MacroLabel label="Fat" grams={fatG} target={targets?.fat} color={FAT_COLOR} />
       </View>
     </View>
   );
@@ -76,15 +59,32 @@ function MacroLabel({
   color: string;
 }) {
   return (
-    <View style={{ flex: 1, alignItems: 'center' }}>
-      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color, marginBottom: 4 }} />
-      <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '600' }}>
+    <View style={{ flex: 1 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <View
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: color,
+          }}
+        />
+        <Text style={typography.label}>{label}</Text>
+      </View>
+      <Text
+        style={[
+          typography.body,
+          {
+            marginTop: spacing.sm,
+            fontVariant: ['tabular-nums'],
+          },
+        ]}
+      >
         {Math.round(grams)}g
       </Text>
       {target != null ? (
-        <Text style={{ color: '#6b7280', fontSize: 11 }}>/ {target}g</Text>
+        <Text style={typography.caption}>Target {target}g</Text>
       ) : null}
-      <Text style={{ color: '#c4c9d4', fontSize: 11, marginTop: 1 }}>{label}</Text>
     </View>
   );
 }

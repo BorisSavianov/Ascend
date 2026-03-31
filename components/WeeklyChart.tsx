@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { Text, View } from 'react-native';
 import { CartesianChart, Line, Scatter } from 'victory-native';
 import { parseISO } from 'date-fns';
+import { colors, typography } from '../lib/theme';
 
 type DayDatum = {
   log_date: string;
@@ -12,22 +13,17 @@ type Props = {
   data: DayDatum[];
 };
 
-// Day abbreviations
 const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function WeeklyChart({ data }: Props) {
   if (data.length === 0) {
     return (
-      <View style={{ height: 160, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: '#4b5563', fontSize: 13 }}>No data this week</Text>
+      <View style={{ height: 176, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={typography.caption}>No data this week</Text>
       </View>
     );
   }
 
-  // Victory Native v41 CartesianChart expects data with numeric xKey.
-  // Use a sequential index (0, 1, 2 ...) to avoid collisions when the dataset
-  // spans a week boundary where two entries share the same getDay() value.
-  // Sort by date first so the sequential index always goes oldest → newest.
   const sorted = [...data].sort((a, b) => a.log_date.localeCompare(b.log_date));
   const chartData = sorted.map((d, i) => ({
     dayIndex: i,
@@ -36,16 +32,16 @@ export default function WeeklyChart({ data }: Props) {
   }));
 
   return (
-    <View style={{ height: 160 }}>
+    <View style={{ height: 176 }}>
       <CartesianChart
         data={chartData}
         xKey="dayIndex"
         yKeys={['calories']}
-        domainPadding={{ left: 16, right: 16, top: 24, bottom: 8 }}
+        domainPadding={{ left: 20, right: 20, top: 28, bottom: 12 }}
         axisOptions={{
           font: null,
-          labelColor: '#6b7280',
-          lineColor: '#374151',
+          labelColor: colors.text.tertiary,
+          lineColor: colors.border.default,
           tickCount: { x: chartData.length, y: 4 },
           formatXLabel: (val) => {
             const item = chartData.find((d) => d.dayIndex === val);
@@ -57,14 +53,14 @@ export default function WeeklyChart({ data }: Props) {
           <>
             <Line
               points={points.calories}
-              color="#22c55e"
-              strokeWidth={2}
-              animate={{ type: 'timing', duration: 500 }}
+              color={colors.accent.primary}
+              strokeWidth={2.5}
+              animate={{ type: 'timing', duration: 320 }}
             />
             <Scatter
               points={points.calories}
-              color="#22c55e"
-              radius={4}
+              color={colors.accent.primary}
+              radius={4.5}
             />
           </>
         )}
@@ -72,4 +68,3 @@ export default function WeeklyChart({ data }: Props) {
     </View>
   );
 }
-

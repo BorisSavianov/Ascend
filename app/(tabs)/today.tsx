@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import {
-  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, {
+  FadeInDown,
+  FadeOutUp,
+  LinearTransition,
+} from 'react-native-reanimated';
 import { format } from 'date-fns';
 import CalorieRing from '../../components/CalorieRing';
 import MacroBar from '../../components/MacroBar';
@@ -21,6 +25,12 @@ import { useAppStore } from '../../store/useAppStore';
 import { formatCalories } from '../../lib/calculations';
 import { supabase } from '../../lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
+import Screen from '../../components/ui/Screen';
+import AppHeader from '../../components/ui/AppHeader';
+import Surface from '../../components/ui/Surface';
+import Button from '../../components/ui/Button';
+import ConfirmationSheet from '../../components/ui/ConfirmationSheet';
+import { colors, spacing, typography } from '../../lib/theme';
 
 export default function TodayScreen() {
   return (
@@ -34,10 +44,11 @@ function TodayScreenContent() {
   const queryClient = useQueryClient();
   const today = new Date();
   const dateStr = format(today, 'yyyy-MM-dd');
+  const [mealToDelete, setMealToDelete] = useState<string | null>(null);
 
   const { data: summary, isFetching: summaryFetching } = useDailySummary(today);
   const { data: meals, isFetching: mealsFetching, refetch } = useTodayMeals(today);
-  const { data: weeklyData } = useWeeklyTrends();
+  const { data: weeklyData = [] } = useWeeklyTrends();
   const calorieTarget = useAppStore((s) => s.calorieTarget);
   const macroTargets = useAppStore((s) => s.macroTargets);
 
@@ -58,112 +69,179 @@ function TodayScreenContent() {
       }
       return;
     }
+    setMealToDelete(null);
     void queryClient.invalidateQueries({ queryKey: ['today_meals', dateStr] });
     void queryClient.invalidateQueries({ queryKey: ['daily_summaries', dateStr] });
-  }
-
-  function confirmDeleteMeal(mealId: string) {
-    Alert.alert('Delete meal', 'Remove this meal and all its items?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => { void handleDeleteMeal(mealId); },
-      },
-    ]);
   }
 
   const consumed = summary?.total_calories ?? 0;
   const proteinG = summary?.total_protein_g ?? 0;
   const fatG = summary?.total_fat_g ?? 0;
   const carbsG = summary?.total_carbs_g ?? 0;
-  // net_calories and exercise_calories_burned are added in migration 006
-  const summaryExt = summary as (typeof summary & { net_calories?: number | null; exercise_calories_burned?: number | null }) | undefined;
+  const summaryExt = summary as (typeof summary & {
+    net_calories?: number | null;
+    exercise_calories_burned?: number | null;
+  }) | undefined;
   const exerciseCalories = summaryExt?.exercise_calories_burned ?? 0;
   const netCalories = summaryExt?.net_calories ?? consumed;
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-950">
+    <Screen>
       <ScrollView
-        className="flex-1"
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingBottom: 132,
+        }}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            tintColor="#22c55e"
+            tintColor={colors.accent.primary}
           />
         }
       >
-        {/* Date header */}
-        <View className="px-4 pt-4 pb-2">
-          <Text className="text-gray-400 text-sm uppercase tracking-widest">
-            {format(today, 'EEEE, d MMMM')}
-          </Text>
-        </View>
+        <AppHeader
+          title="Today"
+          eyebrow={format(today, 'EEEE, d MMMM')}
+          subtitle="A calmer view of what you’ve logged and what still matters today."
+        />
 
-        {/* Calorie ring */}
-        <View className="items-center py-4">
-          <CalorieRing
-            consumed={consumed}
-            target={calorieTarget}
-            size={180}
-          />
-        </View>
+        <View style={{ paddingHorizontal: spacing.xl, gap: spacing.xl }}>
+          <Surface elevated overlay>
+            <View style={{ alignItems: 'center' }}>
+              <CalorieRing consumed={consumed} target={calorieTarget} />
+            </View>
 
-        {/* Macro bar */}
-        <View className="mx-4 mb-4 bg-gray-900 rounded-2xl px-4 py-3">
-          <MacroBar
-            proteinG={proteinG}
-            fatG={fatG}
-            carbsG={carbsG}
-            targets={macroTargets}
-          />
-          {exerciseCalories > 0 ? (
-            <Text className="text-gray-400 text-xs text-center mt-2">
-              Net:{' '}
-              <Text className="text-white font-semibold">
-                {formatCalories(netCalories)} kcal
-              </Text>
-              {' '}({formatCalories(consumed)} − {formatCalories(exerciseCalories)} exercise)
-            </Text>
-          ) : null}
-        </View>
-
-        {/* Meals section */}
-        <View className="px-4">
-          <Text className="text-gray-500 text-xs uppercase tracking-widest mb-3">
-            Meals
-          </Text>
-
-          {meals.length === 0 ? (
-            <EmptyState message="No meals logged today. Tap Log to start." />
-          ) : (
-            meals.map((meal) => (
-              <MealCard
-                key={meal.id}
-                meal={meal}
-                onDelete={() => confirmDeleteMeal(meal.id)}
+            <View
+              style={{
+                flexDirection: 'row',
+                gap: spacing.md,
+                marginTop: spacing.xl,
+              }}
+            >
+              <MetricCard
+                label="Net"
+                value={`${formatCalories(netCalories)}`}
+                tone={exerciseCalories > 0 ? 'accent' : 'default'}
               />
-            ))
-          )}
-        </View>
+              <MetricCard
+                label="Exercise"
+                value={`${formatCalories(exerciseCalories)}`}
+                tone="default"
+              />
+              <MetricCard
+                label="Target"
+                value={`${formatCalories(calorieTarget)}`}
+                tone="default"
+              />
+            </View>
 
-        {/* Weekly chart */}
-        <View className="mx-4 mt-6 mb-4 bg-gray-900 rounded-2xl px-4 pt-3 pb-2">
-          <Text className="text-gray-500 text-xs uppercase tracking-widest mb-2">
-            This week
-          </Text>
-          <WeeklyChart
-            data={weeklyData
-              .filter((d) => d.log_date != null && d.total_calories != null)
-              .map((d) => ({
-                log_date: d.log_date as string,
-                total_calories: d.total_calories as number,
-              }))}
-          />
+            <View style={{ marginTop: spacing.xl }}>
+              <Text style={typography.label}>Macro balance</Text>
+              <View style={{ marginTop: spacing.md }}>
+                <MacroBar
+                  proteinG={proteinG}
+                  fatG={fatG}
+                  carbsG={carbsG}
+                  targets={macroTargets}
+                />
+              </View>
+            </View>
+          </Surface>
+
+          <View>
+            <Text style={typography.h3}>Meals</Text>
+            <Text style={[typography.caption, { marginTop: spacing.xs, marginBottom: spacing.md }]}>
+              Expand any meal to review items or remove it from today.
+            </Text>
+            {meals.length === 0 ? (
+              <EmptyState
+                title="No meals logged"
+                message="Use the Log tab to add your first meal and the day summary will populate here."
+              />
+            ) : (
+              <View style={{ gap: spacing.md }}>
+                {meals.map((meal) => (
+                  <MealCard
+                    key={meal.id}
+                    meal={meal}
+                    onDelete={() => setMealToDelete(meal.id)}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+
+          <Surface>
+            <Text style={typography.h3}>This week</Text>
+            <Text style={[typography.caption, { marginTop: spacing.xs }]}>
+              Daily intake pattern across the last seven entries.
+            </Text>
+            <View style={{ marginTop: spacing.lg }}>
+              <WeeklyChart
+                data={weeklyData
+                  .filter((d) => d.log_date != null && d.total_calories != null)
+                  .map((d) => ({
+                    log_date: d.log_date as string,
+                    total_calories: d.total_calories as number,
+                  }))}
+              />
+            </View>
+          </Surface>
         </View>
       </ScrollView>
-    </SafeAreaView>
+
+      <ConfirmationSheet
+        visible={mealToDelete != null}
+        title="Delete meal"
+        description="Remove this meal and all of its logged items from today."
+        confirmLabel="Delete meal"
+        tone="danger"
+        onCancel={() => setMealToDelete(null)}
+        onConfirm={() => {
+          if (mealToDelete) {
+            void handleDeleteMeal(mealToDelete);
+          }
+        }}
+      />
+    </Screen>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  tone = 'default',
+}: {
+  label: string;
+  value: string;
+  tone?: 'default' | 'accent';
+}) {
+  return (
+    <View
+      style={{
+        flex: 1,
+        minHeight: 88,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: tone === 'accent' ? colors.accent.primary : colors.border.subtle,
+        backgroundColor: tone === 'accent' ? colors.accent.primaryMuted : colors.bg.surface,
+        padding: spacing.lg,
+        justifyContent: 'space-between',
+      }}
+    >
+      <Text style={typography.caption}>{label}</Text>
+      <Text
+        style={[
+          typography.h3,
+          {
+            fontVariant: ['tabular-nums'],
+          },
+        ]}
+      >
+        {value}
+      </Text>
+    </View>
   );
 }
 
@@ -175,69 +253,143 @@ type MealCardProps = {
 function MealCard({ meal, onDelete }: MealCardProps) {
   const [expanded, setExpanded] = useState(false);
 
-  const totalCalories = meal.meal_items.reduce(
-    (sum, item) => sum + item.calories,
-    0,
-  );
-
+  const totalCalories = meal.meal_items.reduce((sum, item) => sum + item.calories, 0);
   const foodNames = meal.meal_items.map((i) => i.food_name);
-  const displayNames =
-    foodNames.length > 3
-      ? `${foodNames.slice(0, 3).join(', ')} and ${foodNames.length - 3} more`
-      : foodNames.join(', ');
+  const previewNames = foodNames.slice(0, 3);
 
   return (
-    <View className="bg-gray-900 rounded-2xl mb-3 overflow-hidden">
-      <Pressable
-        onPress={() => setExpanded((v) => !v)}
-        className="flex-row items-center px-4 py-3"
-      >
-        <View className="flex-1">
-          <Text className="text-white font-semibold text-base">
-            Meal {meal.meal_index}
-            {meal.meal_label ? ` · ${meal.meal_label}` : ''}
-          </Text>
-          <Text className="text-gray-400 text-xs mt-0.5">
-            {format(new Date(meal.logged_at), 'HH:mm')}
-          </Text>
-          <Text className="text-gray-500 text-sm mt-1" numberOfLines={1}>
-            {displayNames || '—'}
-          </Text>
-        </View>
-        <Text className="text-white font-semibold text-base mr-3">
-          {formatCalories(totalCalories)}
-        </Text>
-        <Text className="text-gray-400 text-lg">{expanded ? '▲' : '▼'}</Text>
-      </Pressable>
-
-      {expanded ? (
-        <View className="border-t border-gray-800">
-          {meal.meal_items.map((item) => (
-            <View
-              key={item.id}
-              className="flex-row justify-between px-4 py-2 border-b border-gray-800"
-            >
-              <View className="flex-1">
-                <Text className="text-white text-sm">{item.food_name}</Text>
-                {item.amount_g != null ? (
-                  <Text className="text-gray-500 text-xs">{item.amount_g}g</Text>
-                ) : null}
-              </View>
-              <Text className="text-gray-300 text-sm">
-                {formatCalories(item.calories)} kcal
+    <Animated.View layout={LinearTransition.duration(180)}>
+      <Surface style={{ padding: 0, overflow: 'hidden' }} elevated={expanded}>
+        <Pressable
+          onPress={() => setExpanded((v) => !v)}
+          style={{
+            paddingHorizontal: spacing.lg,
+            paddingVertical: spacing.lg,
+            gap: spacing.md,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: spacing.md,
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={typography.h3}>
+                Meal {meal.meal_index}
+                {meal.meal_label ? ` · ${meal.meal_label}` : ''}
+              </Text>
+              <Text style={[typography.caption, { marginTop: spacing.xs }]}>
+                {format(new Date(meal.logged_at), 'HH:mm')}
               </Text>
             </View>
-          ))}
-          <Pressable
-            onPress={onDelete}
-            className="flex-row justify-center items-center py-3"
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text
+                style={[
+                  typography.label,
+                  {
+                    fontVariant: ['tabular-nums'],
+                  },
+                ]}
+              >
+                {formatCalories(totalCalories)} kcal
+              </Text>
+              <Ionicons
+                name={expanded ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color={colors.text.tertiary}
+                style={{ marginTop: spacing.xs }}
+              />
+            </View>
+          </View>
+
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+            {previewNames.map((name) => (
+              <View
+                key={name}
+                style={{
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.sm,
+                  borderRadius: 999,
+                  backgroundColor: colors.bg.surfaceRaised,
+                  borderWidth: 1,
+                  borderColor: colors.border.subtle,
+                }}
+              >
+                <Text style={typography.caption}>{name}</Text>
+              </View>
+            ))}
+            {foodNames.length > 3 ? (
+              <View
+                style={{
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.sm,
+                  borderRadius: 999,
+                  backgroundColor: colors.bg.surfaceRaised,
+                  borderWidth: 1,
+                  borderColor: colors.border.subtle,
+                }}
+              >
+                <Text style={typography.caption}>+{foodNames.length - 3} more</Text>
+              </View>
+            ) : null}
+          </View>
+        </Pressable>
+
+        {expanded ? (
+          <Animated.View
+            entering={FadeInDown.duration(180)}
+            exiting={FadeOutUp.duration(140)}
+            style={{
+              borderTopWidth: 1,
+              borderTopColor: colors.border.subtle,
+              paddingHorizontal: spacing.lg,
+              paddingBottom: spacing.lg,
+              gap: spacing.sm,
+            }}
           >
-            <Text className="text-red-400 text-sm font-medium">
-              Delete meal
-            </Text>
-          </Pressable>
-        </View>
-      ) : null}
-    </View>
+            {meal.meal_items.map((item) => (
+              <View
+                key={item.id}
+                style={{
+                  minHeight: 52,
+                  paddingTop: spacing.md,
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  gap: spacing.md,
+                }}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={typography.bodySm}>{item.food_name}</Text>
+                  {item.amount_g != null ? (
+                    <Text style={[typography.caption, { marginTop: spacing.xs }]}>
+                      {item.amount_g}g
+                    </Text>
+                  ) : null}
+                </View>
+                <Text
+                  style={[
+                    typography.caption,
+                    {
+                      color: colors.text.secondary,
+                      fontVariant: ['tabular-nums'],
+                    },
+                  ]}
+                >
+                  {formatCalories(item.calories)} kcal
+                </Text>
+              </View>
+            ))}
+            <Button
+              label="Delete meal"
+              onPress={onDelete}
+              variant="ghost"
+            />
+          </Animated.View>
+        ) : null}
+      </Surface>
+    </Animated.View>
   );
 }

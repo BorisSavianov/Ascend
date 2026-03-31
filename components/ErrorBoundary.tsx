@@ -1,5 +1,9 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { Text, View } from 'react-native';
+import Button from './ui/Button';
+import Surface from './ui/Surface';
+import Screen from './ui/Screen';
+import { spacing, typography } from '../lib/theme';
 
 type Props = { children: React.ReactNode; fallbackLabel?: string };
 type State = { hasError: boolean; error: Error | null };
@@ -14,18 +18,26 @@ export class ErrorBoundary extends React.Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <View className="flex-1 items-center justify-center p-6">
-          <Text className="text-lg font-semibold mb-2 text-white">Something went wrong</Text>
-          <Text className="text-sm text-gray-500 mb-6 text-center">
-            {this.props.fallbackLabel ?? this.state.error?.message ?? 'Unknown error'}
-          </Text>
-          <TouchableOpacity
-            onPress={() => this.setState({ hasError: false, error: null })}
-            className="px-6 py-3 bg-black rounded-full"
+        <Screen>
+          <View
+            style={{
+              flex: 1,
+              justifyContent: 'center',
+              paddingHorizontal: spacing.xl,
+            }}
           >
-            <Text className="text-white font-medium">Try again</Text>
-          </TouchableOpacity>
-        </View>
+            <Surface elevated>
+              <Text style={typography.h2}>Something went wrong</Text>
+              <Text style={[typography.bodySm, { marginTop: spacing.sm, marginBottom: spacing.xl }]}>
+                {this.props.fallbackLabel ?? this.state.error?.message ?? 'Unknown error'}
+              </Text>
+              <Button
+                label="Try again"
+                onPress={() => this.setState({ hasError: false, error: null })}
+              />
+            </Surface>
+          </View>
+        </Screen>
       );
     }
     return this.props.children;

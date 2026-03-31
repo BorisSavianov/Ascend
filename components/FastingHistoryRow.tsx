@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { Text, View } from 'react-native';
 import { format, parseISO } from 'date-fns';
 import type { FastingLog } from '../types/database';
+import { colors, spacing, typography } from '../lib/theme';
 
 type Props = {
   fast: FastingLog;
@@ -17,42 +18,55 @@ export default function FastingHistoryRow({ fast }: Props) {
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 10,
+        minHeight: 58,
+        paddingHorizontal: spacing.lg,
         borderBottomWidth: 1,
-        borderBottomColor: '#1f2937',
+        borderBottomColor: colors.border.subtle,
+        backgroundColor: colors.bg.surface,
       }}
     >
-      {/* Date */}
-      <Text style={{ color: '#c4c9d4', fontSize: 13, width: 52 }}>{startDate}</Text>
-
-      {/* Duration bar */}
-      <View style={{ flex: 1, marginHorizontal: 12 }}>
-        <View style={{ height: 4, backgroundColor: '#1f2937', borderRadius: 2, overflow: 'hidden' }}>
+      <Text style={[typography.bodySm, { width: 56 }]}>{startDate}</Text>
+      <View style={{ flex: 1, marginHorizontal: spacing.md }}>
+        <View
+          style={{
+            height: 6,
+            backgroundColor: colors.bg.surfaceRaised,
+            borderRadius: 999,
+            overflow: 'hidden',
+          }}
+        >
           <View
             style={{
               height: '100%',
               width: `${Math.min(((fast.actual_hours ?? 0) / 16) * 100, 100)}%`,
-              backgroundColor: completed ? '#22c55e' : '#f59e0b',
-              borderRadius: 2,
+              backgroundColor: completed ? colors.semantic.success : colors.semantic.warning,
+              borderRadius: 999,
             }}
           />
         </View>
       </View>
-
-      {/* Duration text */}
-      <Text style={{ color: '#d1d5db', fontSize: 13, width: 40, textAlign: 'right' }}>
+      <Text
+        style={[
+          typography.label,
+          {
+            width: 48,
+            textAlign: 'right',
+            fontVariant: ['tabular-nums'],
+          },
+        ]}
+      >
         {durationH}h
       </Text>
-
-      {/* Status badge */}
       <Text
-        style={{
-          fontSize: 15,
-          marginLeft: 8,
-          color: completed ? '#22c55e' : '#ef4444',
-        }}
+        style={[
+          typography.label,
+          {
+            color: completed ? colors.semantic.success : colors.semantic.danger,
+            marginLeft: spacing.sm,
+          },
+        ]}
       >
-        {completed ? '✓' : '✗'}
+        {completed ? 'Done' : 'Ended'}
       </Text>
     </View>
   );

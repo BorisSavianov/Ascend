@@ -1,20 +1,23 @@
 import React, { useState } from 'react';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import {
-  ActivityIndicator,
-  Pressable,
   ScrollView,
   Text,
-  TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import ExerciseRowComponent from '../../components/ExerciseRow';
 import { useExercises } from '../../hooks/useExercises';
 import { useLogExercise } from '../../hooks/useLogExercise';
 import { useDailySummary } from '../../hooks/useDailySummary';
 import { EXERCISE_PRESETS } from '../../constants/exercises';
+import Screen from '../../components/ui/Screen';
+import AppHeader from '../../components/ui/AppHeader';
+import Chip from '../../components/ui/Chip';
+import Surface from '../../components/ui/Surface';
+import TextField from '../../components/ui/TextField';
+import Button from '../../components/ui/Button';
+import { colors, spacing, typography } from '../../lib/theme';
 
 type Preset = (typeof EXERCISE_PRESETS)[number];
 
@@ -92,133 +95,149 @@ function MoveScreenContent() {
     parseInt(caloriesText, 10) >= 0;
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-950">
-      <ScrollView className="flex-1" keyboardShouldPersistTaps="handled">
-        {/* Header */}
-        <View className="px-4 pt-4 pb-2">
-          <Text className="text-white text-2xl font-bold">Move</Text>
-          <Text className="text-gray-400 text-sm mt-0.5">
-            {format(today, 'EEEE, d MMMM')}
-          </Text>
+    <Screen scroll contentContainerStyle={{ paddingBottom: 132 }}>
+      <AppHeader
+        title="Move"
+        eyebrow={format(today, 'EEEE, d MMMM')}
+        subtitle="Keep the exercise flow as quick as meal logging, with clearer presets and cleaner totals."
+      />
+
+      <View style={{ paddingHorizontal: spacing.xl, gap: spacing.xl }}>
+        <View>
+          <Text style={typography.label}>Quick presets</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingTop: spacing.md,
+              paddingBottom: spacing.sm,
+              gap: spacing.sm,
+            }}
+          >
+            {EXERCISE_PRESETS.map((preset) => (
+              <Chip
+                key={preset.name}
+                label={preset.name}
+                onPress={() => handleSelectPreset(preset)}
+                selected={selectedPreset?.name === preset.name}
+              />
+            ))}
+          </ScrollView>
         </View>
 
-        {/* Preset chips */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16 }}
-          className="py-2"
-        >
-          {EXERCISE_PRESETS.map((preset) => (
-            <Pressable
-              key={preset.name}
-              onPress={() => handleSelectPreset(preset)}
-              className={`rounded-full px-4 py-2 mr-2 border ${
-                selectedPreset?.name === preset.name
-                  ? 'bg-orange-500 border-orange-500'
-                  : 'bg-gray-800 border-gray-600'
-              }`}
-            >
-              <Text className="text-white text-sm font-medium">{preset.name}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        {/* Form */}
-        <View className="mx-4 mt-2 bg-gray-900 rounded-2xl p-4">
-          <View className="mb-3">
-            <Text className="text-gray-400 text-xs uppercase tracking-widest mb-1">
-              Exercise
-            </Text>
-            <TextInput
+        <Surface elevated>
+          <Text style={typography.h3}>Log activity</Text>
+          <View style={{ marginTop: spacing.lg, gap: spacing.lg }}>
+            <TextField
+              label="Exercise"
               value={name}
               onChangeText={setName}
-              placeholder="e.g. Walking"
-              placeholderTextColor="#6b7280"
-              className="bg-gray-800 text-white rounded-xl px-4 py-3 text-base"
+              placeholder="Walking"
               returnKeyType="next"
             />
-          </View>
-
-          <View className="flex-row gap-3">
-            <View className="flex-1">
-              <Text className="text-gray-400 text-xs uppercase tracking-widest mb-1">
-                Duration (min)
-              </Text>
-              <TextInput
+            <View style={{ flexDirection: 'row', gap: spacing.md }}>
+              <TextField
+                label="Duration"
                 value={durationText}
                 onChangeText={handleDurationChange}
                 placeholder="30"
-                placeholderTextColor="#6b7280"
                 keyboardType="number-pad"
-                className="bg-gray-800 text-white rounded-xl px-4 py-3 text-base"
+                unit="min"
+                style={{ flex: 1 }}
               />
-            </View>
-            <View className="flex-1">
-              <Text className="text-gray-400 text-xs uppercase tracking-widest mb-1">
-                Calories burned
-              </Text>
-              <TextInput
+              <TextField
+                label="Calories"
                 value={caloriesText}
                 onChangeText={setCaloriesText}
                 placeholder="0"
-                placeholderTextColor="#6b7280"
                 keyboardType="number-pad"
-                className="bg-gray-800 text-white rounded-xl px-4 py-3 text-base"
+                unit="kcal"
+                style={{ flex: 1 }}
               />
             </View>
+            <Button
+              label="Log exercise"
+              onPress={handleLog}
+              disabled={!canLog}
+              loading={isPending}
+            />
           </View>
+        </Surface>
 
-          <Pressable
-            onPress={handleLog}
-            disabled={!canLog || isPending}
-            className={`mt-4 rounded-xl py-4 items-center ${
-              !canLog || isPending ? 'bg-gray-700' : 'bg-orange-500'
-            }`}
+        <Surface>
+          <Text style={typography.h3}>Net energy today</Text>
+          <View
+            style={{
+              flexDirection: 'row',
+              gap: spacing.md,
+              marginTop: spacing.lg,
+            }}
           >
-            {isPending ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text className="text-white font-bold text-base">LOG EXERCISE</Text>
-            )}
-          </Pressable>
-        </View>
+            <SummaryCard label="Food" value={`${Math.round(totalFoodCalories)}`} />
+            <SummaryCard label="Exercise" value={`${Math.round(totalExerciseCalories)}`} tint={colors.semantic.warning} />
+            <SummaryCard label="Net" value={`${Math.round(netCalories)}`} tint={colors.accent.primary} />
+          </View>
+        </Surface>
 
-        {/* Today's exercises */}
         {exercises.length > 0 ? (
-          <View className="mx-4 mt-4">
-            <Text className="text-gray-500 text-xs uppercase tracking-widest mb-2">
-              Today
-            </Text>
+          <Surface style={{ padding: 0, overflow: 'hidden' }}>
+            <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
+              <Text style={typography.h3}>Today’s activity</Text>
+              <Text style={[typography.caption, { marginTop: spacing.xs, marginBottom: spacing.md }]}>
+                Logged movement contributing to your daily net calories.
+              </Text>
+            </View>
             {exercises.map((exercise) => (
               <ExerciseRowComponent key={exercise.id} exercise={exercise} />
             ))}
-          </View>
-        ) : null}
-
-        {/* Net calories note */}
-        <View className="mx-4 mt-4 mb-8 bg-gray-900 rounded-2xl px-4 py-3">
-          <Text className="text-gray-400 text-sm text-center">
-            Net today:{' '}
-            <Text className="text-white font-semibold">
-              {Math.round(totalFoodCalories)}
+          </Surface>
+        ) : (
+          <Surface>
+            <Text style={typography.h3}>No exercise logged yet</Text>
+            <Text style={[typography.bodySm, { marginTop: spacing.sm }]}>
+              Use a preset or type an activity to start building your movement log.
             </Text>
-            <Text className="text-gray-400"> food</Text>
-            {totalExerciseCalories > 0 ? (
-              <>
-                <Text className="text-gray-400"> − </Text>
-                <Text className="text-orange-400 font-semibold">
-                  {Math.round(totalExerciseCalories)}
-                </Text>
-                <Text className="text-gray-400"> exercise = </Text>
-                <Text className="text-white font-bold">
-                  {Math.round(netCalories)} kcal
-                </Text>
-              </>
-            ) : null}
-          </Text>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+          </Surface>
+        )}
+      </View>
+    </Screen>
+  );
+}
+
+function SummaryCard({
+  label,
+  value,
+  tint = colors.text.primary,
+}: {
+  label: string;
+  value: string;
+  tint?: string;
+}) {
+  return (
+    <View
+      style={{
+        flex: 1,
+        minHeight: 84,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: colors.border.subtle,
+        backgroundColor: colors.bg.surfaceRaised,
+        padding: spacing.lg,
+        justifyContent: 'space-between',
+      }}
+    >
+      <Text style={typography.caption}>{label}</Text>
+      <Text
+        style={[
+          typography.h3,
+          {
+            color: tint,
+            fontVariant: ['tabular-nums'],
+          },
+        ]}
+      >
+        {value}
+      </Text>
+    </View>
   );
 }

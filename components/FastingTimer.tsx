@@ -1,6 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { LayoutChangeEvent, Text, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import type { FastingLog } from '../types/database';
+import { colors, motion, spacing, typography } from '../lib/theme';
+import Button from './ui/Button';
+import { useReducedMotionPreference } from '../hooks/useReducedMotionPreference';
 
 type Props = {
   activeFast: FastingLog | null;
@@ -19,12 +27,11 @@ export default function FastingTimer({
   isStarting,
   isEnding,
 }: Props) {
+  const reducedMotion = useReducedMotionPreference();
   const [elapsedHours, setElapsedHours] = useState(0);
+  const [progressWidth, setProgressWidth] = useState(0);
+  const animatedWidth = useSharedValue(0);
 
-  // Re-compute elapsed time every 60 seconds from started_at — survives background/restart.
-  // Depend on the full activeFast object so the cleanup fires correctly when the fast ends
-  // (activeFast goes null → undefined?.started_at and null?.started_at are both undefined,
-  // so the primitive dep would miss the transition).
   useEffect(() => {
     if (!activeFast) {
       setElapsedHours(0);
@@ -32,38 +39,41 @@ export default function FastingTimer({
     }
 
     const startedAt = activeFast.started_at;
-
     function tick() {
       const elapsedMs = Date.now() - new Date(startedAt).getTime();
       setElapsedHours(elapsedMs / 3_600_000);
     }
 
-    tick(); // immediate update
+    tick();
     const interval = setInterval(tick, 60_000);
     return () => clearInterval(interval);
   }, [activeFast]);
 
+  const progress = activeFast ? Math.min(elapsedHours / targetHours, 1) : 0;
+
+  useEffect(() => {
+    if (!progressWidth) return;
+    animatedWidth.value = withTiming(progressWidth * progress, {
+      duration: reducedMotion ? motion.fast : motion.slow,
+    });
+  }, [animatedWidth, progress, progressWidth, reducedMotion]);
+
+  const fillStyle = useAnimatedStyle(() => ({
+    width: animatedWidth.value,
+  }));
+
+  function onTrackLayout(event: LayoutChangeEvent) {
+    setProgressWidth(event.nativeEvent.layout.width);
+  }
+
   if (!activeFast) {
     return (
-      <View style={{ alignItems: 'center', paddingVertical: 16 }}>
-        <Pressable
+      <View style={{ alignItems: 'center', paddingVertical: spacing.lg }}>
+        <Button
+          label={isStarting ? 'Starting…' : 'Start fast'}
           onPress={onStart}
-          disabled={isStarting}
-          accessibilityRole="button"
-          accessibilityLabel="Start fast"
-          accessibilityState={{ disabled: isStarting }}
-          style={({ pressed }) => ({
-            backgroundColor: pressed ? '#16a34a' : '#22c55e',
-            paddingVertical: 14,
-            paddingHorizontal: 40,
-            borderRadius: 12,
-            opacity: isStarting ? 0.6 : 1,
-          })}
-        >
-          <Text style={{ color: '#000000', fontWeight: '700', fontSize: 15, letterSpacing: 1 }}>
-            {isStarting ? 'STARTING…' : 'START FAST'}
-          </Text>
-        </Pressable>
+          loading={isStarting}
+        />
       </View>
     );
   }
@@ -71,70 +81,54 @@ export default function FastingTimer({
   const totalMinutes = elapsedHours * 60;
   const displayHours = Math.floor(totalMinutes / 60);
   const displayMinutes = Math.floor(totalMinutes % 60);
-  const progress = Math.min(elapsedHours / targetHours, 1);
   const isComplete = elapsedHours >= targetHours;
 
   return (
-    <View style={{ paddingVertical: 12 }}>
-      {/* Elapsed time */}
+    <View style={{ paddingVertical: spacing.md }}>
       <Text
-        style={{
-          color: isComplete ? '#22c55e' : '#ffffff',
-          fontSize: 40,
-          fontWeight: '700',
-          textAlign: 'center',
-          letterSpacing: 2,
-        }}
+        style={[
+          typography.metricLg,
+          {
+            textAlign: 'center',
+            color: isComplete ? colors.semantic.success : colors.text.primary,
+          },
+        ]}
       >
         {String(displayHours).padStart(2, '0')}:{String(displayMinutes).padStart(2, '0')}
       </Text>
-      <Text style={{ color: '#6b7280', fontSize: 12, textAlign: 'center', marginTop: 2 }}>
-        of {targetHours}h target
+      <Text style={[typography.caption, { textAlign: 'center', marginTop: spacing.xs }]}>
+        Toward your {targetHours}h target
       </Text>
 
-      {/* Progress bar */}
       <View
+        onLayout={onTrackLayout}
         style={{
-          height: 6,
-          backgroundColor: '#1f2937',
-          borderRadius: 3,
-          marginTop: 12,
-          marginBottom: 16,
+          height: 8,
+          marginTop: spacing.lg,
+          marginBottom: spacing.xl,
+          backgroundColor: colors.bg.surfaceRaised,
+          borderRadius: 999,
           overflow: 'hidden',
         }}
       >
-        <View
-          style={{
-            height: '100%',
-            width: `${progress * 100}%`,
-            backgroundColor: isComplete ? '#22c55e' : '#f59e0b',
-            borderRadius: 3,
-          }}
+        <Animated.View
+          style={[
+            {
+              height: '100%',
+              borderRadius: 999,
+              backgroundColor: isComplete ? colors.semantic.success : colors.semantic.warning,
+            },
+            fillStyle,
+          ]}
         />
       </View>
 
-      {/* End fast button */}
-      <View style={{ alignItems: 'center' }}>
-        <Pressable
-          onPress={onEnd}
-          disabled={isEnding}
-          accessibilityRole="button"
-          accessibilityLabel="End fast"
-          accessibilityState={{ disabled: isEnding }}
-          style={({ pressed }) => ({
-            borderWidth: 1,
-            borderColor: '#ef4444',
-            paddingVertical: 10,
-            paddingHorizontal: 32,
-            borderRadius: 10,
-            opacity: isEnding || pressed ? 0.6 : 1,
-          })}
-        >
-          <Text style={{ color: '#ef4444', fontWeight: '600', fontSize: 14, letterSpacing: 1 }}>
-            {isEnding ? 'ENDING…' : 'END FAST'}
-          </Text>
-        </Pressable>
-      </View>
+      <Button
+        label={isEnding ? 'Ending…' : 'End fast'}
+        onPress={onEnd}
+        loading={isEnding}
+        variant="secondary"
+      />
     </View>
   );
 }
