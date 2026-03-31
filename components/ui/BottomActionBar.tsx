@@ -10,6 +10,7 @@ type Props = {
 
 export default function BottomActionBar({ children, style }: Props) {
   const insets = useSafeAreaInsets();
+  const tabBarHeight = 64 + insets.bottom;
 
   return (
     <View
@@ -20,7 +21,8 @@ export default function BottomActionBar({ children, style }: Props) {
           backgroundColor: colors.bg.base,
           paddingHorizontal: spacing.xl,
           paddingTop: spacing.md,
-          paddingBottom: insets.bottom + 64,
+          paddingBottom: spacing.lg,
+          marginBottom: tabBarHeight,
           gap: spacing.md,
         },
         style,
