@@ -32,6 +32,7 @@ export const DEFAULT_NOTIFICATION_CONFIG: NotificationConfig = {
 };
 
 export const DEFAULT_CUSTOM_REMINDERS: CustomReminder[] = [];
+export const DEFAULT_FASTING_NEAR_END_REMINDER_ENABLED = true;
 
 export const NOTIFICATION_MESSAGES: Record<NotificationId, { title: string; body: string }> = {
   meal_1_reminder: {

@@ -2,7 +2,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { CustomReminder, NotificationConfig } from '../constants/notifications';
-import { DEFAULT_CUSTOM_REMINDERS, DEFAULT_NOTIFICATION_CONFIG } from '../constants/notifications';
+import {
+  DEFAULT_CUSTOM_REMINDERS,
+  DEFAULT_FASTING_NEAR_END_REMINDER_ENABLED,
+  DEFAULT_NOTIFICATION_CONFIG,
+} from '../constants/notifications';
 
 export type MealItemDraft = {
   /** Local UUID used as list key — not the DB id */
@@ -39,12 +43,14 @@ export type AppStore = {
   notificationConfig: NotificationConfig;
   customReminders: CustomReminder[];
   fastingTargetHours: number;
+  fastingNearEndReminderEnabled: boolean;
 
   setCalorieTarget: (kcal: number) => void;
   setMacroTargets: (targets: MacroTargets) => void;
   setNotificationConfig: (config: NotificationConfig) => void;
   setCustomReminders: (reminders: CustomReminder[]) => void;
   setFastingTargetHours: (hours: number) => void;
+  setFastingNearEndReminderEnabled: (enabled: boolean) => void;
 };
 
 type PersistedSettings = {
@@ -53,6 +59,7 @@ type PersistedSettings = {
   notificationConfig: NotificationConfig;
   customReminders: CustomReminder[];
   fastingTargetHours: number;
+  fastingNearEndReminderEnabled: boolean;
 };
 
 export const useAppStore = create<AppStore>()(
@@ -98,6 +105,7 @@ export const useAppStore = create<AppStore>()(
       notificationConfig: DEFAULT_NOTIFICATION_CONFIG,
       customReminders: DEFAULT_CUSTOM_REMINDERS,
       fastingTargetHours: 16,
+      fastingNearEndReminderEnabled: DEFAULT_FASTING_NEAR_END_REMINDER_ENABLED,
 
       setCalorieTarget: (kcal: number) => set({ calorieTarget: kcal }),
       setMacroTargets: (targets: MacroTargets) => set({ macroTargets: targets }),
@@ -105,6 +113,8 @@ export const useAppStore = create<AppStore>()(
         set({ notificationConfig: config }),
       setCustomReminders: (reminders: CustomReminder[]) => set({ customReminders: reminders }),
       setFastingTargetHours: (hours: number) => set({ fastingTargetHours: hours }),
+      setFastingNearEndReminderEnabled: (enabled: boolean) =>
+        set({ fastingNearEndReminderEnabled: enabled }),
     }),
     {
       name: '@app_settings',
@@ -117,6 +127,7 @@ export const useAppStore = create<AppStore>()(
       notificationConfig: state.notificationConfig,
       customReminders: state.customReminders,
       fastingTargetHours: state.fastingTargetHours,
+      fastingNearEndReminderEnabled: state.fastingNearEndReminderEnabled,
     }),
     },
   ),

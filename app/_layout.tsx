@@ -16,6 +16,7 @@ import {
   getStoredNotificationConfig,
   getStoredCustomReminders,
   ensureDailyRemindersScheduled,
+  ensureFastNearEndReminderScheduled,
 } from '../lib/notifications';
 import { useAppStore } from '../store/useAppStore';
 import { colors } from '../lib/theme';
@@ -59,6 +60,9 @@ export default function RootLayout() {
           const config = await getStoredNotificationConfig();
           const custom = await getStoredCustomReminders();
           await ensureDailyRemindersScheduled(config, custom);
+          await ensureFastNearEndReminderScheduled(
+            useAppStore.getState().fastingNearEndReminderEnabled,
+          );
         }
         router.replace('/(tabs)/log');
       } else {
@@ -78,8 +82,13 @@ export default function RootLayout() {
       void (async () => {
         const granted = await requestNotificationPermissions();
         if (!granted) return;
-        const { notificationConfig, customReminders } = useAppStore.getState();
+        const {
+          notificationConfig,
+          customReminders,
+          fastingNearEndReminderEnabled,
+        } = useAppStore.getState();
         await ensureDailyRemindersScheduled(notificationConfig, customReminders);
+        await ensureFastNearEndReminderScheduled(fastingNearEndReminderEnabled);
       })();
     });
 
@@ -93,6 +102,9 @@ export default function RootLayout() {
               const config = await getStoredNotificationConfig();
               const custom = await getStoredCustomReminders();
               await ensureDailyRemindersScheduled(config, custom);
+              await ensureFastNearEndReminderScheduled(
+                useAppStore.getState().fastingNearEndReminderEnabled,
+              );
             }
             router.replace('/(tabs)/log');
           }).catch((err) => {

@@ -9,12 +9,16 @@ import {
   type NotificationConfig,
   type NotificationId,
 } from '../constants/notifications';
+import { supabase } from './supabase';
 
 const NOTIFICATION_CONFIG_KEY = '@notification_config';
 const CUSTOM_REMINDERS_KEY = '@custom_reminders';
 const DAILY_PLAN_KEY = '@notification_daily_plan';
 const MAX_NOTIFICATIONS_PER_DAY = 3;
 const JITTER_MINUTES = 90;
+const FAST_NEAR_END_NOTIFICATION_ID = 'fast:near_end';
+const DAILY_SYSTEM_PREFIX = 'daily:system:';
+const DAILY_CUSTOM_PREFIX = 'daily:custom:';
 
 type DailyPlanEntry = {
   identifier: string;
@@ -32,6 +36,12 @@ type StoredDailyPlan = {
 type ReminderSource =
   | { kind: 'system'; id: NotificationId; title: string; body: string; hour: number; minute: number; enabled: boolean }
   | { kind: 'custom'; id: string; title: string; body: string; hour: number; minute: number; enabled: boolean };
+
+type ActiveFastReminderRow = {
+  id: string;
+  started_at: string;
+  target_hours: number;
+};
 
 function todayKey(date = new Date()): string {
   const year = date.getFullYear();
@@ -80,6 +90,47 @@ function jitterAround(hour: number, minute: number, rand: () => number): { hour:
 
 function encouragementBody(rand: () => number): string {
   return ENCOURAGEMENT_MESSAGES[Math.floor(rand() * ENCOURAGEMENT_MESSAGES.length)];
+}
+
+function dailyIdentifier(source: ReminderSource): string {
+  return source.kind === 'system'
+    ? `${DAILY_SYSTEM_PREFIX}${source.id}`
+    : `${DAILY_CUSTOM_PREFIX}${source.id}`;
+}
+
+function isDailyIdentifier(identifier: string, customReminders: CustomReminder[]): boolean {
+  if (identifier.startsWith(DAILY_SYSTEM_PREFIX) || identifier.startsWith(DAILY_CUSTOM_PREFIX)) {
+    return true;
+  }
+
+  if ((Object.keys(DEFAULT_NOTIFICATION_CONFIG) as NotificationId[]).includes(identifier as NotificationId)) {
+    return true;
+  }
+
+  return customReminders.some((reminder) => reminder.id === identifier);
+}
+
+function getFastReminderLeadMs(targetHours: number): number {
+  if (targetHours <= 2) return 30 * 60 * 1000;
+
+  const leadHours = Math.max(1, Math.round(targetHours / 6));
+  const leadMs = leadHours * 60 * 60 * 1000;
+  const maxLeadMs = Math.max((targetHours * 60 - 30) * 60 * 1000, 15 * 60 * 1000);
+  return Math.min(leadMs, maxLeadMs);
+}
+
+function buildFastReminderContent(targetHours: number): { title: string; body: string } {
+  const leadMs = getFastReminderLeadMs(targetHours);
+  const leadHours = Math.round(leadMs / 3_600_000);
+  const remainingLabel =
+    leadMs < 3_600_000
+      ? 'less than 1 hour'
+      : `${leadHours} hour${leadHours === 1 ? '' : 's'}`;
+
+  return {
+    title: `Let's go, no excuses!`,
+    body: `You are in the last ${remainingLabel} of your ${targetHours}h fast.`,
+  };
 }
 
 // ── Permission ────────────────────────────────────────────────────────────────
@@ -167,7 +218,7 @@ function buildDailyPlan(
           : source.body;
 
       return {
-        identifier: source.id,
+        identifier: dailyIdentifier(source),
         title: source.title,
         body,
         hour,
@@ -191,6 +242,15 @@ async function saveDailyPlan(plan: StoredDailyPlan): Promise<void> {
   await AsyncStorage.setItem(DAILY_PLAN_KEY, JSON.stringify(plan));
 }
 
+async function cancelDailyReminders(customReminders: CustomReminder[]): Promise<void> {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  const cancellations = scheduled
+    .filter((entry) => isDailyIdentifier(entry.identifier, customReminders))
+    .map((entry) => Notifications.cancelScheduledNotificationAsync(entry.identifier));
+
+  await Promise.all(cancellations);
+}
+
 export async function scheduleAllReminders(
   config: NotificationConfig,
   customReminders: CustomReminder[] = DEFAULT_CUSTOM_REMINDERS,
@@ -198,7 +258,7 @@ export async function scheduleAllReminders(
   const dayKey = todayKey();
   const plan = buildDailyPlan(config, customReminders, dayKey);
 
-  await cancelAllReminders();
+  await cancelDailyReminders(customReminders);
 
   for (const entry of plan.entries) {
     await Notifications.scheduleNotificationAsync({
@@ -235,4 +295,82 @@ export async function cancelAllReminders(): Promise<void> {
 
 export async function getScheduledReminders(): Promise<Notifications.NotificationRequest[]> {
   return Notifications.getAllScheduledNotificationsAsync();
+}
+
+export async function cancelFastNearEndReminder(): Promise<void> {
+  try {
+    await Notifications.cancelScheduledNotificationAsync(FAST_NEAR_END_NOTIFICATION_ID);
+  } catch {
+    // Ignore missing identifier
+  }
+}
+
+export async function scheduleFastNearEndReminder(
+  startedAt: string | Date,
+  targetHours: number,
+  enabled: boolean,
+): Promise<void> {
+  await cancelFastNearEndReminder();
+  if (!enabled) return;
+
+  const { status } = await Notifications.getPermissionsAsync();
+  if (status !== 'granted') return;
+
+  const startedAtDate = typeof startedAt === 'string' ? new Date(startedAt) : startedAt;
+  const triggerAt = new Date(
+    startedAtDate.getTime() + targetHours * 3_600_000 - getFastReminderLeadMs(targetHours),
+  );
+
+  if (triggerAt.getTime() <= Date.now()) return;
+
+  const { title, body } = buildFastReminderContent(targetHours);
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: FAST_NEAR_END_NOTIFICATION_ID,
+    content: {
+      title,
+      body,
+      sound: true,
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: triggerAt,
+    },
+  });
+}
+
+async function getActiveFastReminderRow(): Promise<ActiveFastReminderRow | null> {
+  const { data, error } = await supabase
+    .from('fasting_logs' as never)
+    .select('id, started_at, target_hours')
+    .is('ended_at', null)
+    .order('started_at', { ascending: false })
+    .limit(1);
+
+  if (error) {
+    if (__DEV__) console.warn('Active fast reminder lookup failed:', (error as { message?: string }).message);
+    return null;
+  }
+
+  const list = (data ?? []) as ActiveFastReminderRow[];
+  return list.length > 0 ? list[0] : null;
+}
+
+export async function ensureFastNearEndReminderScheduled(enabled: boolean): Promise<void> {
+  if (!enabled) {
+    await cancelFastNearEndReminder();
+    return;
+  }
+
+  const activeFast = await getActiveFastReminderRow();
+  if (!activeFast) {
+    await cancelFastNearEndReminder();
+    return;
+  }
+
+  await scheduleFastNearEndReminder(
+    activeFast.started_at,
+    activeFast.target_hours,
+    true,
+  );
 }

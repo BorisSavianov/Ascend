@@ -24,6 +24,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '../../store/useAppStore';
 import { auth } from '../../lib/supabase';
 import {
+  ensureFastNearEndReminderScheduled,
   scheduleAllReminders,
   saveNotificationConfig,
   saveCustomReminders,
@@ -205,6 +206,8 @@ function FastingSection() {
   const endFast = useEndFast();
   const fastingTargetHours = useAppStore((s) => s.fastingTargetHours);
   const setFastingTargetHours = useAppStore((s) => s.setFastingTargetHours);
+  const fastingNearEndReminderEnabled = useAppStore((s) => s.fastingNearEndReminderEnabled);
+  const setFastingNearEndReminderEnabled = useAppStore((s) => s.setFastingNearEndReminderEnabled);
   const [targetText, setTargetText] = useState(String(fastingTargetHours));
 
   function handleTargetChange(text: string) {
@@ -213,6 +216,11 @@ function FastingSection() {
     if (!isNaN(parsed) && parsed >= 1 && parsed <= 72) {
       setFastingTargetHours(parsed);
     }
+  }
+
+  function handleNearEndReminderToggle(value: boolean) {
+    setFastingNearEndReminderEnabled(value);
+    void ensureFastNearEndReminderScheduled(value);
   }
 
   return (
@@ -229,10 +237,35 @@ function FastingSection() {
           keyboardType="number-pad"
           unit="hours"
         />
+        <View
+          style={{
+            marginTop: spacing.md,
+            paddingVertical: spacing.md,
+            borderTopWidth: 1,
+            borderTopColor: colors.border.subtle,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: spacing.md,
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={typography.bodySm}>Near-finish reminder</Text>
+            <Text style={[typography.caption, { marginTop: spacing.xs }]}>
+              Sends a one-off notification in the last stretch of each fast. Example: last 2h of 10h, last 3h of 16h.
+            </Text>
+          </View>
+          <Switch
+            value={fastingNearEndReminderEnabled}
+            onValueChange={handleNearEndReminderToggle}
+            trackColor={{ false: colors.border.strong, true: colors.accent.primary }}
+            thumbColor={fastingNearEndReminderEnabled ? colors.text.primary : colors.text.tertiary}
+          />
+        </View>
         <View style={{ marginTop: spacing.lg }}>
           <FastingTimer
             activeFast={activeFast ?? null}
-            targetHours={fastingTargetHours}
+            targetHours={activeFast?.target_hours ?? fastingTargetHours}
             onStart={() => startFast.mutate()}
             onEnd={() => {
               if (activeFast) endFast.mutate(activeFast.id);

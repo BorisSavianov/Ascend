@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '../lib/supabase';
+import { cancelFastNearEndReminder } from '../lib/notifications';
 
 export function useEndFast() {
   const queryClient = useQueryClient();
@@ -18,6 +19,7 @@ export function useEndFast() {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       void queryClient.invalidateQueries({ queryKey: ['active_fast'] });
       void queryClient.invalidateQueries({ queryKey: ['fasting_history'] });
+      void cancelFastNearEndReminder();
     },
   });
 }
