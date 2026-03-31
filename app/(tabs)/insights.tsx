@@ -104,7 +104,7 @@ export default function InsightsScreen() {
 }
 
 function InsightsScreenContent() {
-  const { messages, isStreaming, error, sendMessage, clearMessages } = useGeminiChat();
+  const { messages, isStreaming, error, sendMessage, clearMessages, clearError } = useGeminiChat();
   const [inputText, setInputText] = useState('');
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
 
@@ -116,7 +116,8 @@ function InsightsScreenContent() {
   }
 
   function handleQuickPrompt(prompt: string) {
-    setInputText(prompt);
+    if (isStreaming) return;
+    void sendMessage(prompt);
   }
 
   return (
@@ -160,7 +161,7 @@ function InsightsScreenContent() {
       {error ? (
         <ErrorBanner
           message={error}
-          onDismiss={clearMessages}
+          onDismiss={clearError}
         />
       ) : null}
 
@@ -176,6 +177,8 @@ function InsightsScreenContent() {
             <Pressable
               key={prompt}
               onPress={() => handleQuickPrompt(prompt)}
+              accessibilityRole="button"
+              accessibilityLabel={prompt}
               style={({ pressed }) => ({
                 backgroundColor: pressed ? '#1f2937' : '#111827',
                 borderWidth: 1,
@@ -185,7 +188,7 @@ function InsightsScreenContent() {
                 paddingVertical: 8,
               })}
             >
-              <Text style={{ color: '#9ca3af', fontSize: 13 }}>{prompt}</Text>
+              <Text style={{ color: '#c4c9d4', fontSize: 13 }}>{prompt}</Text>
             </Pressable>
           ))}
         </ScrollView>
@@ -225,6 +228,9 @@ function InsightsScreenContent() {
         <Pressable
           onPress={handleSend}
           disabled={!inputText.trim() || isStreaming}
+          accessibilityRole="button"
+          accessibilityLabel="Send message"
+          accessibilityState={{ disabled: !inputText.trim() || isStreaming }}
           style={({ pressed }) => ({
             width: 40,
             height: 40,

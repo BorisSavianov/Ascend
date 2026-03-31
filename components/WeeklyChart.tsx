@@ -24,10 +24,13 @@ export default function WeeklyChart({ data }: Props) {
     );
   }
 
-  // Victory Native v41 CartesianChart expects data with numeric xKey
-  // We use day-of-week index (0-6) and show abbreviation labels
-  const chartData = data.map((d) => ({
-    dayIndex: parseISO(d.log_date).getDay(),
+  // Victory Native v41 CartesianChart expects data with numeric xKey.
+  // Use a sequential index (0, 1, 2 ...) to avoid collisions when the dataset
+  // spans a week boundary where two entries share the same getDay() value.
+  // Sort by date first so the sequential index always goes oldest → newest.
+  const sorted = [...data].sort((a, b) => a.log_date.localeCompare(b.log_date));
+  const chartData = sorted.map((d, i) => ({
+    dayIndex: i,
     calories: Math.round(d.total_calories),
     label: DAY_ABBR[parseISO(d.log_date).getDay()] ?? '',
   }));

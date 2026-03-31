@@ -1,6 +1,7 @@
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Alert, Pressable, Text, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
+import * as Haptics from 'expo-haptics';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import type { ExerciseRow } from '../types/database';
@@ -12,7 +13,18 @@ type Props = {
 export default function ExerciseRowComponent({ exercise }: Props) {
   const queryClient = useQueryClient();
 
-  async function handleDelete() {
+  function handleDelete() {
+    Alert.alert(
+      'Delete exercise?',
+      `Remove "${exercise.name}" from your log?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => { void confirmDelete(); } },
+      ],
+    );
+  }
+
+  async function confirmDelete() {
     const { error } = await supabase
       .from('exercises')
       .delete()
@@ -23,6 +35,7 @@ export default function ExerciseRowComponent({ exercise }: Props) {
       return;
     }
 
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const dateStr = format(new Date(exercise.logged_at), 'yyyy-MM-dd');
     void queryClient.invalidateQueries({ queryKey: ['exercises', dateStr] });
     void queryClient.invalidateQueries({ queryKey: ['daily_summaries', dateStr] });
@@ -39,7 +52,13 @@ export default function ExerciseRowComponent({ exercise }: Props) {
       <Text className="text-orange-400 font-semibold text-base mr-4">
         −{exercise.calories_burned ?? 0} kcal
       </Text>
-      <Pressable onPress={handleDelete} hitSlop={8}>
+      <Pressable
+        onPress={handleDelete}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        accessibilityRole="button"
+        accessibilityLabel={`Delete ${exercise.name}`}
+        style={{ padding: 6 }}
+      >
         <Text className="text-gray-500 text-lg">✕</Text>
       </Pressable>
     </View>

@@ -18,8 +18,14 @@ type Props = {
 
 export default function FoodChip({ food }: Props) {
   const addItem = useAppStore((s: AppStore) => s.addItem);
+  // Use .some() to return a stable boolean primitive — avoids re-render on
+  // unrelated item changes (unlike .find() which returns a new object reference)
+  const isSelected = useAppStore((s: AppStore) =>
+    s.selectedItems.some((i: MealItemDraft) => i.foodId === food.id),
+  );
+  // Still need the full item to get its id for incrementing
   const existingItem = useAppStore((s: AppStore) =>
-    s.selectedItems.find((i: MealItemDraft) => i.foodId === food.id),
+    isSelected ? s.selectedItems.find((i: MealItemDraft) => i.foodId === food.id) : undefined,
   );
 
   function handlePress() {
@@ -56,8 +62,12 @@ export default function FoodChip({ food }: Props) {
   return (
     <Pressable
       onPress={handlePress}
+      accessibilityRole="button"
+      accessibilityLabel={isSelected ? `${food.name}, selected` : food.name}
+      accessibilityState={{ selected: isSelected }}
+      style={{ minHeight: 44, justifyContent: 'center' }}
       className={`rounded-full px-4 py-2 mr-2 border ${
-        existingItem
+        isSelected
           ? 'bg-green-600 border-green-600'
           : 'bg-gray-800 border-gray-600'
       }`}

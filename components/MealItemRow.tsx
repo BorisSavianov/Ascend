@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, Text, TextInput, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Swipeable } from 'react-native-gesture-handler';
@@ -13,6 +13,13 @@ type Props = {
 
 export default function MealItemRow({ item, onAmountChange, onRemove }: Props) {
   const swipeableRef = useRef<Swipeable>(null);
+  // Controlled local state keeps the TextInput in sync when the store updates
+  const [amountText, setAmountText] = useState(String(item.amountG));
+
+  // Sync when store updates amount from external sources (e.g. FoodChip increment)
+  useEffect(() => {
+    setAmountText(String(item.amountG));
+  }, [item.amountG]);
 
   const nutrition = calculateNutrition(
     {
@@ -26,7 +33,8 @@ export default function MealItemRow({ item, onAmountChange, onRemove }: Props) {
   );
 
   function handleAmountChange(text: string) {
-    const parsed = parseInt(text, 10);
+    setAmountText(text);
+    const parsed = parseFloat(text);
     if (!isNaN(parsed) && parsed > 0) {
       onAmountChange(item.id, parsed);
     }
@@ -48,6 +56,8 @@ export default function MealItemRow({ item, onAmountChange, onRemove }: Props) {
           swipeableRef.current?.close();
           onRemove(item.id);
         }}
+        accessibilityRole="button"
+        accessibilityLabel={`Delete ${item.foodName}`}
         className="bg-red-600 justify-center items-center w-20"
       >
         <Animated.Text
@@ -68,9 +78,9 @@ export default function MealItemRow({ item, onAmountChange, onRemove }: Props) {
         </Text>
         <View className="flex-row items-center ml-2">
           <TextInput
-            defaultValue={String(item.amountG)}
+            value={amountText}
             onChangeText={handleAmountChange}
-            keyboardType="numeric"
+            keyboardType="decimal-pad"
             className="text-white text-base text-right bg-gray-800 rounded px-2 py-1 w-16"
             selectTextOnFocus
           />

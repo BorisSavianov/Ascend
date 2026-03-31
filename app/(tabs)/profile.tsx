@@ -22,7 +22,9 @@ import { useActiveFast } from '../../hooks/useActiveFast';
 import { useFastingHistory } from '../../hooks/useFastingHistory';
 import { useStartFast } from '../../hooks/useStartFast';
 import { useEndFast } from '../../hooks/useEndFast';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '../../store/useAppStore';
+import { auth } from '../../lib/supabase';
 import { scheduleAllReminders, saveNotificationConfig } from '../../lib/notifications';
 import type { NotificationConfig } from '../../constants/notifications';
 import * as FileSystem from 'expo-file-system';
@@ -84,7 +86,7 @@ function InputRow({
 }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-      <Text style={{ color: '#9ca3af', fontSize: 14, width: 110 }}>{label}</Text>
+      <Text style={{ color: '#c4c9d4', fontSize: 14, width: 110 }}>{label}</Text>
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -159,6 +161,13 @@ export default function ProfileScreen() {
 }
 
 function ProfileScreenContent() {
+  const queryClient = useQueryClient();
+
+  async function handleSignOut() {
+    await auth.signOut();
+    queryClient.clear();
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#030712' }}>
       <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
@@ -179,6 +188,25 @@ function ProfileScreenContent() {
         <TargetsSection />
         <NotificationsSection />
         <ExportSection />
+
+        {/* Sign out */}
+        <View style={{ marginHorizontal: 16, marginTop: 24 }}>
+          <Pressable
+            onPress={() => { void handleSignOut(); }}
+            accessibilityRole="button"
+            accessibilityLabel="Sign out"
+            style={({ pressed }) => ({
+              borderWidth: 1,
+              borderColor: '#ef4444',
+              borderRadius: 10,
+              paddingVertical: 14,
+              alignItems: 'center',
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <Text style={{ color: '#ef4444', fontWeight: '600', fontSize: 14 }}>Sign Out</Text>
+          </Pressable>
+        </View>
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -253,7 +281,7 @@ function BodyMetricsSection() {
               <WeightSparkline data={sparklineData} />
             </View>
             {firstWeight != null && lastWeight != null ? (
-              <Text style={{ color: '#9ca3af', fontSize: 12, textAlign: 'center', marginTop: 6 }}>
+              <Text style={{ color: '#c4c9d4', fontSize: 12, textAlign: 'center', marginTop: 6 }}>
                 {firstWeight.toFixed(1)} kg → {lastWeight.toFixed(1)} kg
               </Text>
             ) : null}
@@ -271,6 +299,9 @@ function FastingSection() {
   const { data: history } = useFastingHistory();
   const startFast = useStartFast();
   const endFast = useEndFast();
+  const fastingTargetHours = useAppStore((s) => s.fastingTargetHours);
+  const setFastingTargetHours = useAppStore((s) => s.setFastingTargetHours);
+  const [targetText, setTargetText] = useState(String(fastingTargetHours));
 
   function handleStart() {
     startFast.mutate();
@@ -281,13 +312,40 @@ function FastingSection() {
     endFast.mutate(activeFast.id);
   }
 
+  function handleTargetChange(text: string) {
+    setTargetText(text);
+    const parsed = parseInt(text, 10);
+    if (!isNaN(parsed) && parsed >= 1 && parsed <= 72) {
+      setFastingTargetHours(parsed);
+    }
+  }
+
   return (
     <>
       <SectionHeader title="Fasting" />
       <Card>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+          <Text style={{ color: '#c4c9d4', fontSize: 14, flex: 1 }}>Fasting target</Text>
+          <TextInput
+            value={targetText}
+            onChangeText={handleTargetChange}
+            keyboardType="number-pad"
+            style={{
+              backgroundColor: '#1f2937',
+              color: '#ffffff',
+              borderRadius: 8,
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              fontSize: 14,
+              width: 60,
+              textAlign: 'center',
+            }}
+          />
+          <Text style={{ color: '#6b7280', fontSize: 13, marginLeft: 8 }}>h</Text>
+        </View>
         <FastingTimer
           activeFast={activeFast ?? null}
-          targetHours={16}
+          targetHours={fastingTargetHours}
           onStart={handleStart}
           onEnd={handleEnd}
           isStarting={startFast.isPending}

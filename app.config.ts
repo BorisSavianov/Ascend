@@ -34,6 +34,9 @@ export default ({ config }: ConfigContext): ExpoConfigWithNewArch => ({
     newArchEnabled: true,
   },
   extra: {
+    eas: {
+      projectId: '9e8fb9c2-9767-4050-b61f-0584c7e18b72',
+    },
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   },

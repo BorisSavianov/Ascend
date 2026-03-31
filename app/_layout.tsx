@@ -17,16 +17,18 @@ import {
 // Keep splash screen visible until session check resolves
 void SplashScreen.preventAutoHideAsync();
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-    },
-  },
-});
-
 export default function RootLayout() {
   const isMounted = useRef(false);
+  // Create QueryClient inside the component so it is bound to React's lifecycle.
+  // Using useRef ensures a single stable instance across re-renders without
+  // leaking across auth transitions (we call queryClient.clear() on sign-out).
+  const queryClientRef = useRef<QueryClient | null>(null);
+  if (!queryClientRef.current) {
+    queryClientRef.current = new QueryClient({
+      defaultOptions: { queries: { retry: 1 } },
+    });
+  }
+  const queryClient = queryClientRef.current;
 
   useEffect(() => {
     isMounted.current = true;
@@ -74,6 +76,9 @@ export default function RootLayout() {
               await scheduleAllReminders(config);
             }
             router.replace('/(tabs)/log');
+          }).catch((err) => {
+            if (__DEV__) console.warn('Auth init error:', err);
+            router.replace('/(tabs)/log');
           });
         } else {
           router.replace('/(auth)/login');
@@ -111,7 +116,7 @@ async function processDeepLinkUrl(url: string): Promise<void> {
   const { access_token, refresh_token } = params;
   if (!access_token) return;
 
-  if (__DEV__) console.log('Processing magic link tokens from:', url);
+  if (__DEV__) console.log('Processing magic link tokens');
 
   const { error } = await supabase.auth.setSession({ access_token, refresh_token });
   if (error && __DEV__) console.warn('setSession error:', error.message);
@@ -120,7 +125,8 @@ async function processDeepLinkUrl(url: string): Promise<void> {
 async function seedFoodsIfEmpty(userId: string): Promise<void> {
   const { count, error } = await supabase
     .from('foods')
-    .select('id', { count: 'exact', head: true });
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId);
 
   if (error) {
     if (__DEV__) console.warn('Seed check error:', error.message);

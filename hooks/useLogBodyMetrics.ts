@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import * as Haptics from 'expo-haptics';
 import { supabase } from '../lib/supabase';
 
 type LogBodyMetricsInput = {
@@ -22,7 +23,11 @@ export function useLogBodyMetrics() {
       if (error) throw new Error((error as { message: string }).message);
     },
     onSuccess: () => {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       void queryClient.invalidateQueries({ queryKey: ['body_metrics'] });
+    },
+    onError: () => {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     },
   });
 }

@@ -31,7 +31,7 @@ export default function WeightSparkline({ data }: Props) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', height: 40 }}>
       {/* First label */}
-      <Text style={{ color: '#9ca3af', fontSize: 11, width: 36, textAlign: 'right', marginRight: 4 }}>
+      <Text style={{ color: '#c4c9d4', fontSize: 11, width: 36, textAlign: 'right', marginRight: 4 }}>
         {first.toFixed(1)}
       </Text>
 
@@ -54,7 +54,7 @@ export default function WeightSparkline({ data }: Props) {
       </View>
 
       {/* Last label */}
-      <Text style={{ color: '#9ca3af', fontSize: 11, width: 36, marginLeft: 4 }}>
+      <Text style={{ color: '#c4c9d4', fontSize: 11, width: 36, marginLeft: 4 }}>
         {last.toFixed(1)}
       </Text>
     </View>

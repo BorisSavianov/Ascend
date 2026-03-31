@@ -683,7 +683,7 @@ Rank	Item	Impact
 4	Remove as unknown auth casts	Maintenance risk
 5	Remove unused expo-auth-session	Bundle size
 Remediation Roadmap
-Phase 1 — Critical Fixes (Week 1)
+Phase 1 — Critical Fixes 
 SEC-01: Remove token logging
 SEC-02: Fix ilike injection
 SEC-03: Remove debug Alert
@@ -693,7 +693,7 @@ BUG-06: Fix optimistic meal ID instability
 UX-01: Add email validation
 UX-03: Add sign-out button
 STAB-03: Fix unhandled promise rejections
-Phase 2 — Stability Improvements (Weeks 2-3)
+Phase 2 — Stability Improvements 
 OBS-01: Integrate Sentry crash reporting
 STAB-02: Set up Jest + initial test suite
 STAB-04: Fix QueryClient lifecycle
@@ -701,12 +701,12 @@ BUG-03: Fix MealItemRow controlled input
 BUG-05: Fix FastingTimer dependency array
 ARCH-03: Regenerate Supabase types, remove as never
 ARCH-02: Wire Zod validation into mutations
-Phase 3 — Performance Optimization (Week 4)
+Phase 3 — Performance Optimization 
 PERF-01: Memoize FoodChip selectors
 PERF-02: Add AbortController to search
 PERF-03: Throttle chat streaming updates
 BUG-02: Fix WeeklyChart day-of-week collision
-Phase 4 — UX Polish (Weeks 5-6)
+Phase 4 — UX Polish 
 UX-02: Add date navigation on Today screen
 UX-04: Auto-send quick prompts
 UX-05: Fix error dismiss behavior
@@ -714,7 +714,7 @@ QOF-01: Add undo for destructive actions
 QOF-02: Configurable fasting target
 QOF-03: Consistent haptic feedback
 ARCH-01: Extract delete mutation hooks
-Phase 5 — Advanced Enhancements (Weeks 7-8)
+Phase 5 — Advanced Enhancements 
 SEC-04: Certificate pinning
 ACC-01: Full accessibility label pass
 ACC-02: Fix color contrast ratios

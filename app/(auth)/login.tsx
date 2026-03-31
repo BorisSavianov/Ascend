@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import * as Linking from 'expo-linking';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -35,15 +34,18 @@ export default function LoginScreen() {
 
 
   async function handleSendLink() {
-    if (!email.trim()) return;
+    const trimmed = email.trim();
+    if (!trimmed) return;
+
+    // Basic email format validation before hitting the API
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed)) {
+      setErrorMsg('Please enter a valid email address.');
+      return;
+    }
+
     setLoading(true);
     setErrorMsg(null);
-
-    // Show the redirect URL for debugging (remove after confirming it works)
-    if (__DEV__) {
-      console.log('OTP redirect URL:', redirectTo);
-      Alert.alert('Debug: Redirect URL', redirectTo);
-    }
 
     const { error } = await (supabase.auth as unknown as AuthWithOtp).signInWithOtp({
       email: email.trim(),
@@ -85,6 +87,7 @@ export default function LoginScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              accessibilityLabel="Email address"
               className="bg-gray-800 text-white rounded-xl px-4 py-4 text-base mb-4"
             />
 
@@ -95,6 +98,9 @@ export default function LoginScreen() {
             <Pressable
               onPress={() => { void handleSendLink(); }}
               disabled={loading || !email.trim()}
+              accessibilityRole="button"
+              accessibilityLabel="Send login link"
+              accessibilityState={{ disabled: loading || !email.trim() }}
               className={`rounded-xl py-4 items-center ${
                 loading || !email.trim() ? 'bg-gray-700' : 'bg-green-600'
               }`}

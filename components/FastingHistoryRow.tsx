@@ -23,7 +23,7 @@ export default function FastingHistoryRow({ fast }: Props) {
       }}
     >
       {/* Date */}
-      <Text style={{ color: '#9ca3af', fontSize: 13, width: 52 }}>{startDate}</Text>
+      <Text style={{ color: '#c4c9d4', fontSize: 13, width: 52 }}>{startDate}</Text>
 
       {/* Duration bar */}
       <View style={{ flex: 1, marginHorizontal: 12 }}>

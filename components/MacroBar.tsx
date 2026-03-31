@@ -84,7 +84,7 @@ function MacroLabel({
       {target != null ? (
         <Text style={{ color: '#6b7280', fontSize: 11 }}>/ {target}g</Text>
       ) : null}
-      <Text style={{ color: '#9ca3af', fontSize: 11, marginTop: 1 }}>{label}</Text>
+      <Text style={{ color: '#c4c9d4', fontSize: 11, marginTop: 1 }}>{label}</Text>
     </View>
   );
 }

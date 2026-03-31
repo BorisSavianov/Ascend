@@ -21,23 +21,27 @@ export default function FastingTimer({
 }: Props) {
   const [elapsedHours, setElapsedHours] = useState(0);
 
-  // Re-compute elapsed time every 60 seconds from started_at — survives background/restart
+  // Re-compute elapsed time every 60 seconds from started_at — survives background/restart.
+  // Depend on the full activeFast object so the cleanup fires correctly when the fast ends
+  // (activeFast goes null → undefined?.started_at and null?.started_at are both undefined,
+  // so the primitive dep would miss the transition).
   useEffect(() => {
     if (!activeFast) {
       setElapsedHours(0);
       return;
     }
 
+    const startedAt = activeFast.started_at;
+
     function tick() {
-      if (!activeFast) return;
-      const elapsedMs = Date.now() - new Date(activeFast.started_at).getTime();
+      const elapsedMs = Date.now() - new Date(startedAt).getTime();
       setElapsedHours(elapsedMs / 3_600_000);
     }
 
     tick(); // immediate update
     const interval = setInterval(tick, 60_000);
     return () => clearInterval(interval);
-  }, [activeFast?.started_at]);
+  }, [activeFast]);
 
   if (!activeFast) {
     return (
@@ -45,6 +49,9 @@ export default function FastingTimer({
         <Pressable
           onPress={onStart}
           disabled={isStarting}
+          accessibilityRole="button"
+          accessibilityLabel="Start fast"
+          accessibilityState={{ disabled: isStarting }}
           style={({ pressed }) => ({
             backgroundColor: pressed ? '#16a34a' : '#22c55e',
             paddingVertical: 14,
@@ -111,6 +118,9 @@ export default function FastingTimer({
         <Pressable
           onPress={onEnd}
           disabled={isEnding}
+          accessibilityRole="button"
+          accessibilityLabel="End fast"
+          accessibilityState={{ disabled: isEnding }}
           style={({ pressed }) => ({
             borderWidth: 1,
             borderColor: '#ef4444',

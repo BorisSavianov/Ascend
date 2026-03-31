@@ -76,28 +76,32 @@ function LogScreenContent() {
       return;
     }
 
-    let cancelled = false;
+    const controller = new AbortController();
+
     async function search() {
       const q = debouncedSearch.trim();
       // Full-text search via GIN index (covers both name and name_local).
       // Fall back to ilike for single-char queries where websearch needs at least 2 chars.
-      const base = supabase.from('foods').select('*');
+      const base = supabase.from('foods').select('*').abortSignal(controller.signal);
+      // Escape SQL LIKE wildcards to prevent unintended pattern matches
+      const escapedQ = q.replace(/%/g, '\\%').replace(/_/g, '\\_');
+      // Strip FTS operators from websearch input to prevent query injection
+      const ftsQ = q.replace(/[!|&<>()]/g, ' ').trim();
       const filtered =
         q.length >= 2
-          ? base.textSearch('search_vector', q, { type: 'websearch' })
-          : base.ilike('name', `%${q}%`);
+          ? base.textSearch('search_vector', ftsQ, { type: 'websearch' })
+          : base.ilike('name', `%${escapedQ}%`);
       const { data, error } = await filtered.limit(20);
 
-      if (!cancelled) {
-        if (error) {
-          if (__DEV__) console.warn('Search error:', error.message);
-        } else {
-          setSearchResults(data ?? []);
-        }
+      if (controller.signal.aborted) return;
+      if (error) {
+        if (__DEV__) console.warn('Search error:', error.message);
+      } else {
+        setSearchResults(data ?? []);
       }
     }
     void search();
-    return () => { cancelled = true; };
+    return () => { controller.abort(); };
   }, [debouncedSearch]);
 
   const totalCalories = selectedItems.reduce((sum: number, item: MealItemDraft) => {

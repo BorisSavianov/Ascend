@@ -37,16 +37,19 @@ export type AppStore = {
   calorieTarget: number;
   macroTargets: MacroTargets;
   notificationConfig: NotificationConfig;
+  fastingTargetHours: number;
 
   setCalorieTarget: (kcal: number) => void;
   setMacroTargets: (targets: MacroTargets) => void;
   setNotificationConfig: (config: NotificationConfig) => void;
+  setFastingTargetHours: (hours: number) => void;
 };
 
 type PersistedSettings = {
   calorieTarget: number;
   macroTargets: MacroTargets;
   notificationConfig: NotificationConfig;
+  fastingTargetHours: number;
 };
 
 export const useAppStore = create<AppStore>()(
@@ -90,11 +93,13 @@ export const useAppStore = create<AppStore>()(
       calorieTarget: 2000,
       macroTargets: { protein: 160, fat: 80, carbs: 100 },
       notificationConfig: DEFAULT_NOTIFICATION_CONFIG,
+      fastingTargetHours: 16,
 
       setCalorieTarget: (kcal: number) => set({ calorieTarget: kcal }),
       setMacroTargets: (targets: MacroTargets) => set({ macroTargets: targets }),
       setNotificationConfig: (config: NotificationConfig) =>
         set({ notificationConfig: config }),
+      setFastingTargetHours: (hours: number) => set({ fastingTargetHours: hours }),
     }),
     {
       name: '@app_settings',
@@ -105,6 +110,7 @@ export const useAppStore = create<AppStore>()(
         calorieTarget: state.calorieTarget,
         macroTargets: state.macroTargets,
         notificationConfig: state.notificationConfig,
+        fastingTargetHours: state.fastingTargetHours,
       }),
     },
   ),

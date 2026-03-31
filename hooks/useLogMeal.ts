@@ -1,9 +1,25 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { z } from 'zod';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { useAppStore, type AppStore, type MealItemDraft } from '../store/useAppStore';
 import type { MealWithItems } from './useTodayMeals';
 import type { DailySummaryRow } from '../types/database';
+
+const LogMealVariablesSchema = z.object({
+  mealIndex: z.union([z.literal(1), z.literal(2)]),
+  mealLabel: z.string().optional(),
+  items: z.array(z.object({
+    foodId: z.string().nullable(),
+    foodName: z.string().min(1),
+    amountG: z.number().positive(),
+    caloriesPer100g: z.number().min(0),
+    proteinPer100g: z.number().min(0),
+    fatPer100g: z.number().min(0),
+    carbsPer100g: z.number().min(0),
+    fiberPer100g: z.number().min(0),
+  })).min(1, 'At least one item is required'),
+});
 
 type LogMealVariables = {
   mealIndex: 1 | 2;
@@ -18,6 +34,7 @@ export function useLogMeal() {
 
   return useMutation({
     mutationFn: async (variables: LogMealVariables) => {
+      LogMealVariablesSchema.parse(variables);
       const loggedAt = variables.loggedAt ?? new Date();
 
       // 1. Insert the meal row
@@ -96,8 +113,9 @@ export function useLogMeal() {
 
       // Optimistically add a temporary meal entry
       const loggedAt = (variables.loggedAt ?? new Date()).toISOString();
+      const optimisticTs = Date.now();
       const optimisticMeal: MealWithItems = {
-        id: `optimistic-${Date.now()}`,
+        id: `optimistic-${optimisticTs}`,
         user_id: '',
         logged_at: loggedAt,
         meal_index: variables.mealIndex,
@@ -109,7 +127,7 @@ export function useLogMeal() {
           const factor = item.amountG / 100;
           return {
             id: `optimistic-item-${idx}`,
-            meal_id: `optimistic-${Date.now()}`,
+            meal_id: `optimistic-${optimisticTs}`,
             food_id: item.foodId,
             food_name: item.foodName,
             food_name_local: null,
