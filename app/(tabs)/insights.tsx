@@ -18,6 +18,7 @@ import AppHeader from '../../components/ui/AppHeader';
 import Chip from '../../components/ui/Chip';
 import Surface from '../../components/ui/Surface';
 import Button from '../../components/ui/Button';
+import BottomActionBar from '../../components/ui/BottomActionBar';
 import { colors, spacing, typography } from '../../lib/theme';
 
 function StreamingDots() {
@@ -222,10 +223,8 @@ function InsightsScreenContent() {
           </ScrollView>
         ) : null}
 
-        <View
+        <BottomActionBar
           style={{
-            paddingHorizontal: spacing.xl,
-            paddingBottom: spacing.xl,
             paddingTop: spacing.sm,
           }}
         >
@@ -291,7 +290,7 @@ function InsightsScreenContent() {
               </Pressable>
             </View>
           </Surface>
-        </View>
+        </BottomActionBar>
       </View>
     </Screen>
   );
