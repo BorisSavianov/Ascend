@@ -16,3 +16,7 @@ web-build/
 android/
 ios/
 supabase/.temp/
+*.aab
+*.apk
+*.apks
+*.jar
