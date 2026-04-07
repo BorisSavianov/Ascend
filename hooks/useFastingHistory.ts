@@ -11,14 +11,14 @@ export function useFastingHistory(): {
     queryKey: ['fasting_history'],
     queryFn: async () => {
       const { data: rows, error: queryError } = await supabase
-        .from('fasting_logs' as never)
+        .from('fasting_logs')
         .select('*')
         .not('ended_at', 'is', null)
         .order('started_at', { ascending: false })
         .limit(7);
 
-      if (queryError) throw new Error((queryError as { message: string }).message);
-      return (rows ?? []) as FastingLog[];
+      if (queryError) throw new Error(queryError.message);
+      return rows ?? [];
     },
     staleTime: 5 * 60 * 1000,
   });

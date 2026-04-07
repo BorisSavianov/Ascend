@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { logger } from './logger';
 import {
   DEFAULT_CUSTOM_REMINDERS,
   DEFAULT_NOTIFICATION_CONFIG,
@@ -341,14 +342,14 @@ export async function scheduleFastNearEndReminder(
 
 async function getActiveFastReminderRow(): Promise<ActiveFastReminderRow | null> {
   const { data, error } = await supabase
-    .from('fasting_logs' as never)
+    .from('fasting_logs')
     .select('id, started_at, target_hours')
     .is('ended_at', null)
     .order('started_at', { ascending: false })
     .limit(1);
 
   if (error) {
-    if (__DEV__) console.warn('Active fast reminder lookup failed:', (error as { message?: string }).message);
+    logger.warn('Active fast reminder lookup failed:', error.message);
     return null;
   }
 

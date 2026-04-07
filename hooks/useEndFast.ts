@@ -9,11 +9,11 @@ export function useEndFast() {
   return useMutation({
     mutationFn: async (fastId: string) => {
       const { error } = await supabase
-        .from('fasting_logs' as never)
-        .update({ ended_at: new Date().toISOString() } as never)
-        .eq('id' as never, fastId);
+        .from('fasting_logs')
+        .update({ ended_at: new Date().toISOString() })
+        .eq('id', fastId);
 
-      if (error) throw new Error((error as { message: string }).message);
+      if (error) throw new Error(error.message);
     },
     onSuccess: () => {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

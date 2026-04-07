@@ -10,9 +10,11 @@ export function useFrequentFoods(): {
   const { data, isLoading, error } = useQuery({
     queryKey: ['frequent_foods'],
     queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
       const { data: rows, error: queryError } = await supabase
         .from('foods')
         .select('*')
+        .eq('user_id', user?.id ?? '')
         .order('use_count', { ascending: false })
         .limit(10);
 

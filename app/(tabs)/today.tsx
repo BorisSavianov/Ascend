@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import {
@@ -13,23 +13,23 @@ import Animated, {
   FadeOutUp,
   LinearTransition,
 } from 'react-native-reanimated';
-import { format } from 'date-fns';
+import { format, isToday, subDays, addDays } from 'date-fns';
 import CalorieRing from '../../components/CalorieRing';
 import MacroBar from '../../components/MacroBar';
 import WeeklyChart from '../../components/WeeklyChart';
 import EmptyState from '../../components/EmptyState';
 import { useDailySummary } from '../../hooks/useDailySummary';
+import { useDeleteMeal } from '../../hooks/useDeleteMeal';
 import { useTodayMeals, type MealWithItems } from '../../hooks/useTodayMeals';
 import { useWeeklyTrends } from '../../hooks/useWeeklyTrends';
 import { useAppStore } from '../../store/useAppStore';
 import { formatCalories } from '../../lib/calculations';
-import { supabase } from '../../lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
 import Screen from '../../components/ui/Screen';
 import AppHeader from '../../components/ui/AppHeader';
 import Surface from '../../components/ui/Surface';
 import Button from '../../components/ui/Button';
-import ConfirmationSheet from '../../components/ui/ConfirmationSheet';
+import UndoToast from '../../components/ui/UndoToast';
 import { colors, spacing, typography } from '../../lib/theme';
 
 export default function TodayScreen() {
@@ -40,19 +40,32 @@ export default function TodayScreen() {
   );
 }
 
+const UNDO_DELAY_MS = 5000;
+
 function TodayScreenContent() {
   const queryClient = useQueryClient();
-  const today = new Date();
-  const dateStr = format(today, 'yyyy-MM-dd');
-  const [mealToDelete, setMealToDelete] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const dateStr = format(selectedDate, 'yyyy-MM-dd');
+  const atToday = isToday(selectedDate);
+  const [pendingMealDelete, setPendingMealDelete] = useState<MealWithItems | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { data: summary, isFetching: summaryFetching } = useDailySummary(today);
-  const { data: meals, isFetching: mealsFetching, refetch } = useTodayMeals(today);
+  const { data: summary, isFetching: summaryFetching } = useDailySummary(selectedDate);
+  const { data: meals, isFetching: mealsFetching, refetch } = useTodayMeals(selectedDate);
   const { data: weeklyData = [] } = useWeeklyTrends();
   const calorieTarget = useAppStore((s) => s.calorieTarget);
   const macroTargets = useAppStore((s) => s.macroTargets);
+  const { mutate: deleteMeal } = useDeleteMeal();
 
   const isRefreshing = summaryFetching || mealsFetching;
+
+  useEffect(() => {
+    return () => { if (undoTimerRef.current) clearTimeout(undoTimerRef.current); };
+  }, []);
+
+  function navigateDate(delta: -1 | 1) {
+    setSelectedDate((d) => delta === -1 ? subDays(d, 1) : addDays(d, 1));
+  }
 
   function handleRefresh() {
     void queryClient.invalidateQueries({ queryKey: ['daily_summaries', dateStr] });
@@ -61,17 +74,23 @@ function TodayScreenContent() {
     refetch();
   }
 
-  async function handleDeleteMeal(mealId: string) {
-    const { error } = await supabase.from('meals').delete().eq('id', mealId);
-    if (error) {
-      if (__DEV__) {
-        console.warn('Delete meal error:', error.message);
-      }
-      return;
-    }
-    setMealToDelete(null);
-    void queryClient.invalidateQueries({ queryKey: ['today_meals', dateStr] });
-    void queryClient.invalidateQueries({ queryKey: ['daily_summaries', dateStr] });
+  const commitDeleteMeal = useCallback((meal: MealWithItems) => {
+    deleteMeal({ mealId: meal.id, loggedAt: meal.logged_at });
+  }, [deleteMeal]);
+
+  function handleRequestDeleteMeal(meal: MealWithItems) {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    if (pendingMealDelete) commitDeleteMeal(pendingMealDelete);
+    setPendingMealDelete(meal);
+    undoTimerRef.current = setTimeout(() => {
+      setPendingMealDelete(null);
+      commitDeleteMeal(meal);
+    }, UNDO_DELAY_MS);
+  }
+
+  function handleUndoMealDelete() {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setPendingMealDelete(null);
   }
 
   const consumed = summary?.total_calories ?? 0;
@@ -101,9 +120,17 @@ function TodayScreenContent() {
         }
       >
         <AppHeader
-          title="Today"
-          eyebrow={format(today, 'EEEE, d MMMM')}
-          subtitle="A calmer view of what you’ve logged and what still matters today."
+          title={atToday ? 'Today' : format(selectedDate, 'EEEE')}
+          subtitle={atToday
+            ? "A calmer view of what you've logged and what still matters today."
+            : `Reviewing your log for ${format(selectedDate, 'd MMMM yyyy')}.`}
+          trailing={
+            <DateNav
+              atToday={atToday}
+              onPrev={() => navigateDate(-1)}
+              onNext={() => navigateDate(1)}
+            />
+          }
         />
 
         <View style={{ paddingHorizontal: spacing.xl, gap: spacing.xl }}>
@@ -165,7 +192,8 @@ function TodayScreenContent() {
                   <MealCard
                     key={meal.id}
                     meal={meal}
-                    onDelete={() => setMealToDelete(meal.id)}
+                    onDelete={() => handleRequestDeleteMeal(meal)}
+                    isPendingDelete={pendingMealDelete?.id === meal.id}
                   />
                 ))}
               </View>
@@ -191,19 +219,12 @@ function TodayScreenContent() {
         </View>
       </ScrollView>
 
-      <ConfirmationSheet
-        visible={mealToDelete != null}
-        title="Delete meal"
-        description="Remove this meal and all of its logged items from today."
-        confirmLabel="Delete meal"
-        tone="danger"
-        onCancel={() => setMealToDelete(null)}
-        onConfirm={() => {
-          if (mealToDelete) {
-            void handleDeleteMeal(mealToDelete);
-          }
-        }}
-      />
+      {pendingMealDelete ? (
+        <UndoToast
+          message={`Meal ${pendingMealDelete.meal_index} will be deleted`}
+          onUndo={handleUndoMealDelete}
+        />
+      ) : null}
     </Screen>
   );
 }
@@ -248,9 +269,10 @@ function MetricCard({
 type MealCardProps = {
   meal: MealWithItems;
   onDelete: () => void;
+  isPendingDelete?: boolean;
 };
 
-function MealCard({ meal, onDelete }: MealCardProps) {
+function MealCard({ meal, onDelete, isPendingDelete = false }: MealCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   const totalCalories = meal.meal_items.reduce((sum, item) => sum + item.calories, 0);
@@ -262,6 +284,10 @@ function MealCard({ meal, onDelete }: MealCardProps) {
       <Surface style={{ padding: 0, overflow: 'hidden' }} elevated={expanded}>
         <Pressable
           onPress={() => setExpanded((v) => !v)}
+          accessibilityRole="button"
+          accessibilityLabel={`Meal ${meal.meal_index}${meal.meal_label ? `, ${meal.meal_label}` : ''}`}
+          accessibilityHint={expanded ? 'Tap to collapse meal details' : 'Tap to expand meal details'}
+          accessibilityState={{ expanded }}
           style={{
             paddingHorizontal: spacing.lg,
             paddingVertical: spacing.lg,
@@ -383,13 +409,72 @@ function MealCard({ meal, onDelete }: MealCardProps) {
               </View>
             ))}
             <Button
-              label="Delete meal"
+              label={isPendingDelete ? 'Deleting…' : 'Delete meal'}
               onPress={onDelete}
               variant="ghost"
+              disabled={isPendingDelete}
             />
           </Animated.View>
         ) : null}
       </Surface>
     </Animated.View>
+  );
+}
+
+function DateNav({
+  atToday,
+  onPrev,
+  onNext,
+}: {
+  atToday: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+      <Pressable
+        onPress={onPrev}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 8 }}
+        accessibilityRole="button"
+        accessibilityLabel="Previous day"
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+          backgroundColor: colors.bg.surfaceRaised,
+          borderWidth: 1,
+          borderColor: colors.border.default,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Ionicons name="chevron-back" size={16} color={colors.text.secondary} />
+      </Pressable>
+      <Pressable
+        onPress={() => {
+          if (!atToday) onNext();
+        }}
+        hitSlop={{ top: 12, bottom: 12, left: 8, right: 12 }}
+        accessibilityRole="button"
+        accessibilityLabel="Next day"
+        accessibilityState={{ disabled: atToday }}
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+          backgroundColor: atToday ? colors.bg.surface : colors.bg.surfaceRaised,
+          borderWidth: 1,
+          borderColor: atToday ? colors.border.subtle : colors.border.default,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Ionicons
+          name="chevron-forward"
+          size={16}
+          color={atToday ? colors.text.disabled : colors.text.secondary}
+        />
+      </Pressable>
+    </View>
   );
 }

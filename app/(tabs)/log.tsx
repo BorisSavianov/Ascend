@@ -27,6 +27,7 @@ import BottomActionBar from '../../components/ui/BottomActionBar';
 import EmptyState from '../../components/EmptyState';
 import Toast from '../../components/ui/Toast';
 import { colors, spacing, typography } from '../../lib/theme';
+import { logger } from '../../lib/logger';
 
 let _draftCounter = 0;
 function nextDraftId(): string {
@@ -93,7 +94,7 @@ function LogScreenContent() {
 
       if (controller.signal.aborted) return;
       if (error) {
-        if (__DEV__) console.warn('Search error:', error.message);
+        logger.warn('Search error:', error.message);
       } else {
         setSearchResults(data ?? []);
       }
@@ -197,6 +198,8 @@ function LogScreenContent() {
             autoCorrect={false}
             returnKeyType="search"
             label="Food search"
+            accessibilityLabel="Search foods"
+            accessibilityHint="Type a food name to search the database"
           />
 
           {!isSearching && frequentFoods.length > 0 ? (

@@ -14,13 +14,13 @@ export function useLogBodyMetrics() {
   return useMutation({
     mutationFn: async (input: LogBodyMetricsInput) => {
       const { error } = await supabase
-        .from('body_metrics' as never)
+        .from('body_metrics')
         .insert({
           ...input,
           recorded_at: new Date().toISOString(),
-        } as never);
+        });
 
-      if (error) throw new Error((error as { message: string }).message);
+      if (error) throw new Error(error.message);
     },
     onSuccess: () => {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

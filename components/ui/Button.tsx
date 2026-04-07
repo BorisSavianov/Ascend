@@ -91,6 +91,9 @@ export default function Button({
       <Pressable
         disabled={disabled || loading}
         onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={{ disabled: disabled || loading }}
         onPressIn={() => {
           if (reducedMotion) return;
           scale.value = withTiming(motion.pressScale, { duration: motion.fast });

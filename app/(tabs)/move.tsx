@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import {
   ScrollView,
@@ -10,13 +10,18 @@ import ExerciseRowComponent from '../../components/ExerciseRow';
 import { useExercises } from '../../hooks/useExercises';
 import { useLogExercise } from '../../hooks/useLogExercise';
 import { useDailySummary } from '../../hooks/useDailySummary';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../../lib/supabase';
+import { logger } from '../../lib/logger';
 import { EXERCISE_PRESETS } from '../../constants/exercises';
+import type { ExerciseRow } from '../../types/database';
 import Screen from '../../components/ui/Screen';
 import AppHeader from '../../components/ui/AppHeader';
 import Chip from '../../components/ui/Chip';
 import Surface from '../../components/ui/Surface';
 import TextField from '../../components/ui/TextField';
 import Button from '../../components/ui/Button';
+import UndoToast from '../../components/ui/UndoToast';
 import { colors, spacing, typography } from '../../lib/theme';
 
 type Preset = (typeof EXERCISE_PRESETS)[number];
@@ -29,8 +34,11 @@ export default function MoveScreen() {
   );
 }
 
+const UNDO_DELAY_MS = 5000;
+
 function MoveScreenContent() {
   const today = new Date();
+  const queryClient = useQueryClient();
 
   const { data: exercises = [] } = useExercises(today);
   const { data: summary } = useDailySummary(today);
@@ -40,6 +48,43 @@ function MoveScreenContent() {
   const [name, setName] = useState('');
   const [durationText, setDurationText] = useState('');
   const [caloriesText, setCaloriesText] = useState('');
+  const [pendingDelete, setPendingDelete] = useState<ExerciseRow | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const commitDelete = useCallback(async (exercise: ExerciseRow) => {
+    const { error } = await supabase.from('exercises').delete().eq('id', exercise.id);
+    if (error) {
+      logger.warn('Delete exercise error:', error.message);
+      return;
+    }
+    const dateStr = format(new Date(exercise.logged_at), 'yyyy-MM-dd');
+    void queryClient.invalidateQueries({ queryKey: ['exercises', dateStr] });
+    void queryClient.invalidateQueries({ queryKey: ['daily_summaries', dateStr] });
+  }, [queryClient]);
+
+  const handleRequestDelete = useCallback((exercise: ExerciseRow) => {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    // If there was already a pending delete, commit it immediately
+    if (pendingDelete) {
+      void commitDelete(pendingDelete);
+    }
+    setPendingDelete(exercise);
+    undoTimerRef.current = setTimeout(() => {
+      setPendingDelete(null);
+      void commitDelete(exercise);
+    }, UNDO_DELAY_MS);
+  }, [pendingDelete, commitDelete]);
+
+  const handleUndo = useCallback(() => {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setPendingDelete(null);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    };
+  }, []);
 
   function handleSelectPreset(preset: Preset) {
     setSelectedPreset(preset);
@@ -96,6 +141,12 @@ function MoveScreenContent() {
 
   return (
     <Screen scroll contentContainerStyle={{ paddingBottom: 132 }}>
+      {pendingDelete ? (
+        <UndoToast
+          message={`"${pendingDelete.name}" will be deleted`}
+          onUndo={handleUndo}
+        />
+      ) : null}
       <AppHeader
         title="Move"
         eyebrow={format(today, 'EEEE, d MMMM')}
@@ -188,7 +239,11 @@ function MoveScreenContent() {
               </Text>
             </View>
             {exercises.map((exercise) => (
-              <ExerciseRowComponent key={exercise.id} exercise={exercise} />
+              <ExerciseRowComponent
+                key={exercise.id}
+                exercise={exercise}
+                onRequestDelete={handleRequestDelete}
+              />
             ))}
           </Surface>
         ) : (

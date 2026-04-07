@@ -16,14 +16,14 @@ export function useWeeklyTrends(): {
     queryKey: ['weekly_trends', from, to],
     queryFn: async () => {
       const { data: rows, error: queryError } = await supabase
-        .from('daily_summaries' as never)
+        .from('daily_summaries')
         .select('*')
         .gte('log_date', from)
         .lte('log_date', to)
         .order('log_date', { ascending: true });
 
-      if (queryError) throw new Error((queryError as { message: string }).message);
-      return (rows ?? []) as DailySummaryRow[];
+      if (queryError) throw new Error(queryError.message);
+      return rows ?? [];
     },
     staleTime: 5 * 60 * 1000,
   });

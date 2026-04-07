@@ -13,13 +13,13 @@ export function useStartFast() {
     mutationFn: async () => {
       const startedAt = new Date().toISOString();
       const { error } = await supabase
-        .from('fasting_logs' as never)
+        .from('fasting_logs')
         .insert({
           started_at: startedAt,
           target_hours: fastingTargetHours,
-        } as never);
+        });
 
-      if (error) throw new Error((error as { message: string }).message);
+      if (error) throw new Error(error.message);
       return { startedAt, targetHours: fastingTargetHours };
     },
     onSuccess: ({ startedAt, targetHours }) => {

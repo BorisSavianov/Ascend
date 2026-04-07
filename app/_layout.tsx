@@ -10,6 +10,7 @@ import React, { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { supabase, auth } from '../lib/supabase';
+import { logger } from '../lib/logger';
 import OfflineBanner from '../components/OfflineBanner';
 import {
   requestNotificationPermissions,
@@ -26,6 +27,11 @@ void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const isMounted = useRef(false);
+  // Tracks whether initAuth() has completed its first run. The onAuthStateChange
+  // listener fires immediately if a session exists, which would race with
+  // initAuth. We skip the listener's first event until initAuth is done.
+  const initDoneRef = useRef(false);
+
   // Create QueryClient inside the component so it is bound to React's lifecycle.
   // Using useRef ensures a single stable instance across re-renders without
   // leaking across auth transitions (we call queryClient.clear() on sign-out).
@@ -68,13 +74,21 @@ export default function RootLayout() {
       } else {
         router.replace('/(auth)/login');
       }
+
+      // Signal that initAuth has finished so the auth listener can take over
+      initDoneRef.current = true;
     }
 
-    void initAuth();
+    void initAuth().catch((err) => {
+      logger.warn('initAuth error:', err);
+      initDoneRef.current = true;
+    });
 
     // Handle deep links when app is already open (foreground)
     const linkingSub = Linking.addEventListener('url', ({ url }) => {
-      void processDeepLinkUrl(url);
+      void processDeepLinkUrl(url).catch((err) => {
+        logger.warn('processDeepLinkUrl error:', err);
+      });
     });
 
     const appStateSub = AppState.addEventListener('change', (nextState) => {
@@ -95,6 +109,9 @@ export default function RootLayout() {
     const { data: { subscription } } = auth.onAuthStateChange(
       (_event, session) => {
         if (!isMounted.current) return;
+        // Skip the initial synchronous event that fires before initAuth completes
+        // to avoid double-navigation and double-seeding on cold start.
+        if (!initDoneRef.current) return;
         if (session) {
           void seedFoodsIfEmpty(session.user.id).then(async () => {
             const granted = await requestNotificationPermissions();
@@ -108,7 +125,7 @@ export default function RootLayout() {
             }
             router.replace('/(tabs)/log');
           }).catch((err) => {
-            if (__DEV__) console.warn('Auth init error:', err);
+            logger.warn('Auth init error:', err);
             router.replace('/(tabs)/log');
           });
         } else {
@@ -149,10 +166,10 @@ async function processDeepLinkUrl(url: string): Promise<void> {
   const { access_token, refresh_token } = params;
   if (!access_token) return;
 
-  if (__DEV__) console.log('Processing magic link tokens');
+  logger.log('Processing magic link tokens');
 
   const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-  if (error && __DEV__) console.warn('setSession error:', error.message);
+  if (error) logger.warn('setSession error:', error.message);
 }
 
 async function seedFoodsIfEmpty(userId: string): Promise<void> {
@@ -162,7 +179,7 @@ async function seedFoodsIfEmpty(userId: string): Promise<void> {
     .eq('user_id', userId);
 
   if (error) {
-    if (__DEV__) console.warn('Seed check error:', error.message);
+    logger.warn('Seed check error:', error.message);
     return;
   }
 
@@ -170,8 +187,8 @@ async function seedFoodsIfEmpty(userId: string): Promise<void> {
     const { error: seedError } = await supabase.rpc('seed_personal_foods', {
       p_user_id: userId,
     });
-    if (seedError && __DEV__) {
-      console.warn('Seed error:', seedError.message);
+    if (seedError) {
+      logger.warn('Seed error:', seedError.message);
     }
   }
 }

@@ -17,7 +17,7 @@ export const colors = {
   text: {
     primary: '#F5F7FA',
     secondary: '#B5BFCA',
-    tertiary: '#7D8896',
+    tertiary: '#8E9BAB',  // Lightened from #7D8896 for WCAG AA compliance on surface backgrounds
     disabled: '#5E6773',
   },
   accent: {

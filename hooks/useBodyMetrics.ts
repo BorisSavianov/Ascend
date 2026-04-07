@@ -11,13 +11,13 @@ export function useBodyMetrics(): {
     queryKey: ['body_metrics'],
     queryFn: async () => {
       const { data: rows, error: queryError } = await supabase
-        .from('body_metrics' as never)
+        .from('body_metrics')
         .select('*')
         .order('recorded_at', { ascending: false })
         .limit(30);
 
-      if (queryError) throw new Error((queryError as { message: string }).message);
-      return (rows ?? []) as BodyMetricRow[];
+      if (queryError) throw new Error(queryError.message);
+      return rows ?? [];
     },
     staleTime: 5 * 60 * 1000,
   });

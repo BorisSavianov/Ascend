@@ -30,8 +30,18 @@ export default function CalorieRing({ consumed, target, size = 188 }: Props) {
         },
       ];
 
+  const accessibilityLabel = `${Math.round(consumed)} kcal consumed${
+    isOver
+      ? `, ${Math.round(consumed - target)} over target`
+      : `, ${Math.round(remaining)} remaining of ${Math.round(target)} target`
+  }`;
+
   return (
-    <View style={{ width: size, height: size, position: 'relative' }}>
+    <View
+      style={{ width: size, height: size, position: 'relative' }}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="image"
+    >
       <PolarChart
         data={data}
         labelKey="label"

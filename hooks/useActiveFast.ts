@@ -11,13 +11,13 @@ export function useActiveFast(): {
     queryKey: ['active_fast'],
     queryFn: async () => {
       const { data: rows, error: queryError } = await supabase
-        .from('fasting_logs' as never)
+        .from('fasting_logs')
         .select('*')
         .is('ended_at', null)
         .order('started_at', { ascending: false })
         .limit(1);
 
-      if (queryError) throw new Error((queryError as { message: string }).message);
+      if (queryError) throw new Error(queryError.message);
 
       const list = (rows ?? []) as FastingLog[];
       return list.length > 0 ? list[0] : null;

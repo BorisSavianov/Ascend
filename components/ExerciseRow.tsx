@@ -1,46 +1,19 @@
 import React from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
-import { format } from 'date-fns';
-import { supabase } from '../lib/supabase';
 import type { ExerciseRow } from '../types/database';
 import { colors, spacing, typography } from '../lib/theme';
 
 type Props = {
   exercise: ExerciseRow;
+  onRequestDelete: (exercise: ExerciseRow) => void;
 };
 
-export default function ExerciseRowComponent({ exercise }: Props) {
-  const queryClient = useQueryClient();
-
+export default function ExerciseRowComponent({ exercise, onRequestDelete }: Props) {
   function handleDelete() {
-    Alert.alert(
-      'Delete exercise?',
-      `Remove "${exercise.name}" from your log?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => { void confirmDelete(); } },
-      ],
-    );
-  }
-
-  async function confirmDelete() {
-    const { error } = await supabase
-      .from('exercises')
-      .delete()
-      .eq('id', exercise.id);
-
-    if (error) {
-      if (__DEV__) console.warn('Delete exercise error:', error.message);
-      return;
-    }
-
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const dateStr = format(new Date(exercise.logged_at), 'yyyy-MM-dd');
-    void queryClient.invalidateQueries({ queryKey: ['exercises', dateStr] });
-    void queryClient.invalidateQueries({ queryKey: ['daily_summaries', dateStr] });
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onRequestDelete(exercise);
   }
 
   return (
