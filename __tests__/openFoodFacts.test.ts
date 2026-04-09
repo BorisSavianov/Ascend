@@ -4,6 +4,7 @@ const MOCK_PRODUCT = {
   code: '1234567890',
   product_name: 'Chicken Breast',
   brands: 'Generic',
+  image_front_small_url: 'https://images.openfoodfacts.org/images/products/chicken.jpg',
   nutriments: {
     'energy-kcal_100g': 165,
     proteins_100g: 31,
@@ -35,6 +36,7 @@ describe('OpenFoodFactsAPI.search', () => {
       externalId: '1234567890',
       name: 'Chicken Breast',
       brand: 'Generic',
+      imageUrl: 'https://images.openfoodfacts.org/images/products/chicken.jpg',
       caloriesPer100g: 165,
       proteinPer100g: 31,
       fatPer100g: 3.6,
@@ -108,11 +110,20 @@ describe('OpenFoodFactsAPI.search', () => {
   });
 
   it('throws on non-ok response', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 503 });
+    // Mock all retry attempts to return 503 so the loop exhausts
+    (global.fetch as jest.Mock).mockResolvedValue({ ok: false, status: 503 });
+    jest.useFakeTimers();
 
-    await expect(api.search('test')).rejects.toThrow(
-      'OpenFoodFacts search failed: 503',
-    );
+    const searchPromise = api.search('test');
+    // Attach the rejection handler BEFORE advancing timers to avoid
+    // PromiseRejectionHandledWarning from unhandled async rejection
+    const expectation = expect(searchPromise).rejects.toThrow('OpenFoodFacts search failed: 503');
+
+    // Advance through all exponential backoff delays (1s + 2s)
+    await jest.runAllTimersAsync();
+    jest.useRealTimers();
+
+    await expectation;
   });
 
   it('returns empty array when products array is empty', async () => {

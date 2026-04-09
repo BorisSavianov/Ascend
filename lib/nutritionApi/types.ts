@@ -2,6 +2,7 @@ export type NutritionSearchResult = {
   externalId: string;
   name: string;
   brand?: string;
+  imageUrl?: string;
   caloriesPer100g: number;
   proteinPer100g: number;
   fatPer100g: number;

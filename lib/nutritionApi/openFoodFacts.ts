@@ -15,6 +15,7 @@ type OFFProduct = {
   code?: string;
   product_name?: string;
   brands?: string;
+  image_front_small_url?: string;
   nutriments?: OFFNutriments;
 };
 
@@ -42,6 +43,7 @@ function mapProduct(p: OFFProduct): NutritionSearchResult | null {
     externalId: p.code,
     name,
     brand: p.brands?.trim() || undefined,
+    imageUrl: p.image_front_small_url?.trim() || undefined,
     caloriesPer100g: round1(calories),
     proteinPer100g: round1(p.nutriments?.proteins_100g ?? 0),
     fatPer100g: round1(p.nutriments?.fat_100g ?? 0),
@@ -109,7 +111,7 @@ export class OpenFoodFactsAPI implements NutritionAPI {
       action: 'process',
       json: '1',
       search_terms: query,
-      fields: 'code,product_name,brands,nutriments',
+      fields: 'code,product_name,brands,nutriments,image_front_small_url',
       page_size: '10',
       sort_by: 'popularity_key',
     });

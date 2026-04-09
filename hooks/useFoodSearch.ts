@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { openFoodFactsAPI, searchCache, offCircuitBreaker } from '../lib/nutritionApi';
 import type { NutritionSearchResult } from '../lib/nutritionApi';
+import { getPersistentCache, setPersistentCache } from '../lib/nutritionApi/persistentSearchCache';
 import { logger } from '../lib/logger';
 import type { FoodRow } from '../types/database';
 
@@ -46,6 +47,7 @@ export function useFoodSearch(query: string): UseFoodSearchResult {
 
   const localControllerRef = useRef<AbortController | null>(null);
   const apiControllerRef = useRef<AbortController | null>(null);
+  const pendingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Local search — runs immediately on normalized query ──────────────────
   useEffect(() => {
@@ -81,7 +83,7 @@ export function useFoodSearch(query: string): UseFoodSearchResult {
     };
   }, [query]);
 
-  // ── API debounce — 400 ms after last keystroke ───────────────────────────
+  // ── API debounce — adaptive: 0 ms on persistent cache hit, 400 ms otherwise ─
   useEffect(() => {
     const trimmed = normalizeQuery(query);
     if (!trimmed || trimmed.length < 2) {
@@ -90,8 +92,39 @@ export function useFoodSearch(query: string): UseFoodSearchResult {
       setIsSearchingApi(false);
       return;
     }
-    const timer = setTimeout(() => setDebouncedApiQuery(trimmed), API_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
+
+    // Check persistent (or in-memory) cache — if hit, apply with no delay
+    let cancelled = false;
+    // Check caches without affecting hit/miss counters (the API effect does the official lookup).
+    const inMemoryHit = searchCache.has(trimmed);
+    const persistedPromise = inMemoryHit ? Promise.resolve(true) : getPersistentCache(trimmed).then(r => r !== null);
+
+    persistedPromise.then(hit => {
+      if (cancelled) return;
+      const delay = hit ? 0 : API_DEBOUNCE_MS;
+      if (delay === 0) {
+        setDebouncedApiQuery(trimmed);
+      } else {
+        const timer = setTimeout(() => setDebouncedApiQuery(trimmed), delay);
+        // Can't clear this inner timer from the outer cleanup, but the API
+        // effect guards against stale queries via AbortController.
+        // Store it so cleanup can cancel if query changes before it fires.
+        pendingDebounceRef.current = timer;
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        const timer = setTimeout(() => setDebouncedApiQuery(trimmed), API_DEBOUNCE_MS);
+        pendingDebounceRef.current = timer;
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      if (pendingDebounceRef.current !== null) {
+        clearTimeout(pendingDebounceRef.current);
+        pendingDebounceRef.current = null;
+      }
+    };
   }, [query]);
 
   // ── API search — fires on debounced query with cache + circuit breaker ───
@@ -125,11 +158,23 @@ export function useFoodSearch(query: string): UseFoodSearchResult {
     async function searchApi() {
       setIsSearchingApi(true);
       try {
+        // Check persistent cache before hitting the network
+        const persisted = await getPersistentCache(debouncedApiQuery);
+        if (persisted && !controller.signal.aborted) {
+          setApiResults(persisted);
+          searchCache.set(debouncedApiQuery, persisted);
+          setIsSearchingApi(false);
+          logger.metric('off_persistent_cache_hit', 1, { query: debouncedApiQuery });
+          return;
+        }
+
         const results = await openFoodFactsAPI.search(debouncedApiQuery, controller.signal);
         if (!controller.signal.aborted) {
           setApiResults(results);
           searchCache.set(debouncedApiQuery, results);
           offCircuitBreaker.recordSuccess();
+          // Persist for future sessions — fire-and-forget
+          void setPersistentCache(debouncedApiQuery, results);
         }
       } catch (err) {
         if (!controller.signal.aborted) {

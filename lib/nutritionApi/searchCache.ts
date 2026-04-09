@@ -5,7 +5,7 @@ type CacheEntry = {
   timestamp: number;
 };
 
-const MAX_ENTRIES = 50;
+const MAX_ENTRIES = 200;
 const TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
@@ -43,6 +43,17 @@ export class SearchCache {
       if (oldest !== undefined) this.cache.delete(oldest);
     }
     this.cache.set(query, { results, timestamp: Date.now() });
+  }
+
+  /** Returns true if the query is cached and not expired. Does not affect hit/miss counters. */
+  has(query: string): boolean {
+    const entry = this.cache.get(query);
+    if (!entry) return false;
+    if (Date.now() - entry.timestamp > TTL_MS) {
+      this.cache.delete(query);
+      return false;
+    }
+    return true;
   }
 
   clear(): void {
