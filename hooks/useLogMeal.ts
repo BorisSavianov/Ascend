@@ -7,8 +7,8 @@ import type { MealWithItems } from './useTodayMeals';
 import type { DailySummaryRow } from '../types/database';
 
 const LogMealVariablesSchema = z.object({
-  mealIndex: z.union([z.literal(1), z.literal(2)]),
-  mealLabel: z.string().optional(),
+  sortOrder: z.number().int().positive(),
+  mealLabel: z.string().min(1, 'Meal label is required'),
   items: z.array(z.object({
     foodId: z.string().nullable(),
     foodName: z.string().min(1),
@@ -22,8 +22,8 @@ const LogMealVariablesSchema = z.object({
 });
 
 type LogMealVariables = {
-  mealIndex: 1 | 2;
-  mealLabel?: string;
+  sortOrder: number;
+  mealLabel: string;
   items: MealItemDraft[];
   loggedAt?: Date;
 };
@@ -42,8 +42,8 @@ export function useLogMeal() {
         .from('meals')
         .insert({
           logged_at: loggedAt.toISOString(),
-          meal_index: variables.mealIndex,
-          meal_label: variables.mealLabel ?? null,
+          sort_order: variables.sortOrder,
+          meal_label: variables.mealLabel,
         })
         .select('id')
         .single();
@@ -118,8 +118,8 @@ export function useLogMeal() {
         id: `optimistic-${optimisticTs}`,
         user_id: '',
         logged_at: loggedAt,
-        meal_index: variables.mealIndex,
-        meal_label: variables.mealLabel ?? null,
+        sort_order: variables.sortOrder,
+        meal_label: variables.mealLabel,
         notes: null,
         created_at: loggedAt,
         updated_at: loggedAt,
