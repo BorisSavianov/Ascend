@@ -32,7 +32,7 @@ const makeItem = (id: string, foodId: string | null = id, amountG = 100): MealIt
 
 // Reset store state before each test
 beforeEach(() => {
-  useAppStore.setState({ selectedItems: [] });
+  useAppStore.setState({ selectedItems: [], mealLabel: '' });
 });
 
 describe('addItem', () => {
@@ -110,6 +110,26 @@ describe('clearItems', () => {
     addItem(makeItem('a'));
     addItem(makeItem('b', 'b'));
     clearItems();
+    expect(useAppStore.getState().selectedItems).toHaveLength(0);
+  });
+});
+
+describe('mealLabel', () => {
+  it('defaults to empty string', () => {
+    expect(useAppStore.getState().mealLabel).toBe('');
+  });
+
+  it('setMealLabel updates the label', () => {
+    useAppStore.getState().setMealLabel('Breakfast');
+    expect(useAppStore.getState().mealLabel).toBe('Breakfast');
+  });
+
+  it('clearItems resets mealLabel to empty string', () => {
+    const { addItem, setMealLabel, clearItems } = useAppStore.getState();
+    addItem(makeItem('a'));
+    setMealLabel('Lunch');
+    clearItems();
+    expect(useAppStore.getState().mealLabel).toBe('');
     expect(useAppStore.getState().selectedItems).toHaveLength(0);
   });
 });
