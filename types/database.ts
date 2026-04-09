@@ -195,6 +195,8 @@ export type Database = {
           updated_at: string
           use_count: number
           user_id: string
+          source: string | null
+          external_id: string | null
         }
         Insert: {
           barcode?: string | null
@@ -216,6 +218,8 @@ export type Database = {
           updated_at?: string
           use_count?: number
           user_id?: string
+          source?: string | null
+          external_id?: string | null
         }
         Update: {
           barcode?: string | null
@@ -237,6 +241,8 @@ export type Database = {
           updated_at?: string
           use_count?: number
           user_id?: string
+          source?: string | null
+          external_id?: string | null
         }
         Relationships: []
       }
@@ -308,7 +314,7 @@ export type Database = {
           created_at: string
           id: string
           logged_at: string
-          meal_index: number
+          sort_order: number
           meal_label: string | null
           notes: string | null
           updated_at: string
@@ -318,7 +324,7 @@ export type Database = {
           created_at?: string
           id?: string
           logged_at?: string
-          meal_index?: number
+          sort_order?: number
           meal_label?: string | null
           notes?: string | null
           updated_at?: string
@@ -328,7 +334,7 @@ export type Database = {
           created_at?: string
           id?: string
           logged_at?: string
-          meal_index?: number
+          sort_order?: number
           meal_label?: string | null
           notes?: string | null
           updated_at?: string
