@@ -36,6 +36,8 @@ export type AppStore = {
   updateItemAmount: (id: string, amountG: number) => void;
   removeItem: (id: string) => void;
   clearItems: () => void;
+  mealLabel: string;
+  setMealLabel: (label: string) => void;
 
   // ── Settings (persisted to AsyncStorage) ─────────────────────────────────
   calorieTarget: number;
@@ -97,7 +99,9 @@ export const useAppStore = create<AppStore>()(
           selectedItems: state.selectedItems.filter((i) => i.id !== id),
         })),
 
-      clearItems: () => set({ selectedItems: [] }),
+      clearItems: () => set({ selectedItems: [], mealLabel: '' }),
+      mealLabel: '',
+      setMealLabel: (label: string) => set({ mealLabel: label }),
 
       // ── Settings ─────────────────────────────────────────────────────────
       calorieTarget: 2000,
