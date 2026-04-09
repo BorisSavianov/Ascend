@@ -61,6 +61,20 @@ export default function RootLayout() {
 
       if (session) {
         await seedFoodsIfEmpty(session.user.id);
+        // Warm the frequent-foods cache so LogScreen renders instantly
+        void queryClient.prefetchQuery({
+          queryKey: ['frequent_foods'],
+          queryFn: async () => {
+            const { data } = await supabase
+              .from('foods')
+              .select('*')
+              .eq('user_id', session.user.id)
+              .order('use_count', { ascending: false })
+              .limit(10);
+            return data ?? [];
+          },
+          staleTime: 5 * 60 * 1000,
+        });
         const granted = await requestNotificationPermissions();
         if (granted) {
           const config = await getStoredNotificationConfig();
@@ -114,6 +128,20 @@ export default function RootLayout() {
         if (!initDoneRef.current) return;
         if (session) {
           void seedFoodsIfEmpty(session.user.id).then(async () => {
+            // Warm frequent-foods cache on sign-in
+            void queryClient.prefetchQuery({
+              queryKey: ['frequent_foods'],
+              queryFn: async () => {
+                const { data } = await supabase
+                  .from('foods')
+                  .select('*')
+                  .eq('user_id', session.user.id)
+                  .order('use_count', { ascending: false })
+                  .limit(10);
+                return data ?? [];
+              },
+              staleTime: 5 * 60 * 1000,
+            });
             const granted = await requestNotificationPermissions();
             if (granted) {
               const config = await getStoredNotificationConfig();

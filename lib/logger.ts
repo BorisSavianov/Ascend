@@ -14,4 +14,12 @@ export const logger = {
     if (__DEV__) console.error(message, context ?? '');
     // TODO: Sentry.captureException(context ?? new Error(message)) in prod
   },
+  /** Structured numeric metric. Tags are key-value pairs for grouping. */
+  metric(name: string, value: number, tags?: Record<string, string>): void {
+    if (__DEV__) {
+      const tagStr = tags ? ` ${JSON.stringify(tags)}` : '';
+      console.log(`[METRIC] ${name}=${value}${tagStr}`);
+    }
+    // TODO: Forward to Sentry performance / custom analytics endpoint in prod
+  },
 };

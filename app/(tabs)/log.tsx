@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import * as Haptics from 'expo-haptics';
@@ -48,7 +48,6 @@ export default function LogScreen() {
 function LogScreenContent() {
   const searchInputRef = useRef<TextInput>(null);
   const [searchText, setSearchText] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const { data: frequentFoods = [] } = useFrequentFoods();
@@ -62,7 +61,8 @@ function LogScreenContent() {
   const addItem = useAppStore((s: AppStore) => s.addItem);
   const setMealLabel = useAppStore((s: AppStore) => s.setMealLabel);
 
-  const { localResults, apiResults, isSearchingApi } = useFoodSearch(debouncedSearch);
+  // Debouncing is now handled inside useFoodSearch (local=immediate, API=400ms)
+  const { localResults, apiResults, isSearchingApi } = useFoodSearch(searchText);
 
   // Sort order = next available slot (existing meals + 1)
   const sortOrder = todayMeals.length + 1;
@@ -74,13 +74,7 @@ function LogScreenContent() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Debounce: 300ms to be gentle on the API
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchText);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchText]);
+
 
   useEffect(() => {
     if (!toastMessage) return;
@@ -164,12 +158,29 @@ function LogScreenContent() {
 
   type SearchItem =
     | { type: 'local'; food: FoodRow }
-    | { type: 'api'; result: NutritionSearchResult };
+    | { type: 'api'; result: NutritionSearchResult }
+    | { type: 'section'; label: string };
 
-  const searchData: SearchItem[] = [
-    ...localResults.map((f): SearchItem => ({ type: 'local', food: f })),
-    ...apiResults.map((r): SearchItem => ({ type: 'api', result: r })),
-  ];
+  // Deduplicate: if a food was already cached locally, don't show the API duplicate
+  const searchData: SearchItem[] = useMemo(() => {
+    const localExternalIds = new Set(
+      localResults.map((f) => f.external_id).filter(Boolean),
+    );
+    const dedupedApi = apiResults.filter(
+      (r) => !localExternalIds.has(r.externalId),
+    );
+
+    const items: SearchItem[] = [];
+    if (localResults.length > 0) {
+      items.push({ type: 'section', label: 'Your foods' });
+      items.push(...localResults.map((f): SearchItem => ({ type: 'local', food: f })));
+    }
+    if (dedupedApi.length > 0) {
+      items.push({ type: 'section', label: 'Open Food Facts' });
+      items.push(...dedupedApi.map((r): SearchItem => ({ type: 'api', result: r })));
+    }
+    return items;
+  }, [localResults, apiResults]);
 
   return (
     <Screen edges={['top', 'left', 'right', 'bottom']}>
@@ -219,22 +230,53 @@ function LogScreenContent() {
                 <FlatList
                   data={searchData}
                   keyExtractor={(item) =>
-                    item.type === 'local' ? item.food.id : `api-${item.result.externalId}`
+                    item.type === 'local'
+                      ? item.food.id
+                      : item.type === 'api'
+                        ? `api-${item.result.externalId}`
+                        : `section-${item.label}`
                   }
                   keyboardShouldPersistTaps="handled"
-                  renderItem={({ item }) =>
-                    item.type === 'local' ? (
-                      <PressableSearchRow
-                        item={item.food}
-                        onPress={() => addFoodRow(item.food)}
-                      />
-                    ) : (
+                  renderItem={({ item }) => {
+                    if (item.type === 'section') {
+                      return (
+                        <View
+                          style={{
+                            paddingHorizontal: spacing.lg,
+                            paddingTop: spacing.md,
+                            paddingBottom: spacing.xs,
+                          }}
+                        >
+                          <Text
+                            style={[
+                              typography.caption,
+                              {
+                                color: colors.text.tertiary,
+                                textTransform: 'uppercase',
+                                letterSpacing: 0.5,
+                              },
+                            ]}
+                          >
+                            {item.label}
+                          </Text>
+                        </View>
+                      );
+                    }
+                    if (item.type === 'local') {
+                      return (
+                        <PressableSearchRow
+                          item={item.food}
+                          onPress={() => addFoodRow(item.food)}
+                        />
+                      );
+                    }
+                    return (
                       <ApiSearchRow
                         result={item.result}
                         onPress={() => void handleAddApiFood(item.result)}
                       />
-                    )
-                  }
+                    );
+                  }}
                   ListHeaderComponent={
                     isSearchingApi ? (
                       <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.sm }}>
@@ -245,7 +287,7 @@ function LogScreenContent() {
                     ) : null
                   }
                   ListEmptyComponent={
-                    debouncedSearch.trim() && !isSearchingApi ? (
+                    searchText.trim() && !isSearchingApi ? (
                       <View style={{ padding: spacing.xl }}>
                         <EmptyState
                           title="No foods found"
