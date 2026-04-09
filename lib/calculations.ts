@@ -35,14 +35,6 @@ export function calculateNutrition(
 }
 
 /**
- * Determine meal index from current time.
- * Before 15:00 → 1, 15:00 and after → 2
- */
-export function getMealIndexFromTime(date: Date = new Date()): 1 | 2 {
-  return date.getHours() < 15 ? 1 : 2;
-}
-
-/**
  * Sum nutrition values across an array of meal items.
  */
 export function sumNutrition(items: MealItemRow[]): NutritionValues {

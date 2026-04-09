@@ -1,6 +1,5 @@
 import {
   calculateNutrition,
-  getMealIndexFromTime,
   sumNutrition,
   formatCalories,
   formatGrams,
@@ -47,20 +46,6 @@ describe('calculateNutrition', () => {
     const result = calculateNutrition(chicken, 0);
     expect(result.calories).toBe(0);
     expect(result.proteinG).toBe(0);
-  });
-});
-
-describe('getMealIndexFromTime', () => {
-  it('returns 1 for hours before 15:00', () => {
-    expect(getMealIndexFromTime(new Date('2024-01-01T08:00:00'))).toBe(1);
-    expect(getMealIndexFromTime(new Date('2024-01-01T14:59:00'))).toBe(1);
-    expect(getMealIndexFromTime(new Date('2024-01-01T00:00:00'))).toBe(1);
-  });
-
-  it('returns 2 for hours at or after 15:00', () => {
-    expect(getMealIndexFromTime(new Date('2024-01-01T15:00:00'))).toBe(2);
-    expect(getMealIndexFromTime(new Date('2024-01-01T20:00:00'))).toBe(2);
-    expect(getMealIndexFromTime(new Date('2024-01-01T23:59:00'))).toBe(2);
   });
 });
 
