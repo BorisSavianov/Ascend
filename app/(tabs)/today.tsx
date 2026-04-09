@@ -221,7 +221,7 @@ function TodayScreenContent() {
 
       {pendingMealDelete ? (
         <UndoToast
-          message={`Meal ${pendingMealDelete.meal_index} will be deleted`}
+          message={`${pendingMealDelete.meal_label ?? 'Meal'} will be deleted`}
           onUndo={handleUndoMealDelete}
         />
       ) : null}
@@ -285,7 +285,7 @@ function MealCard({ meal, onDelete, isPendingDelete = false }: MealCardProps) {
         <Pressable
           onPress={() => setExpanded((v) => !v)}
           accessibilityRole="button"
-          accessibilityLabel={`Meal ${meal.meal_index}${meal.meal_label ? `, ${meal.meal_label}` : ''}`}
+          accessibilityLabel={meal.meal_label ?? `Meal ${meal.sort_order}`}
           accessibilityHint={expanded ? 'Tap to collapse meal details' : 'Tap to expand meal details'}
           accessibilityState={{ expanded }}
           style={{
@@ -304,8 +304,7 @@ function MealCard({ meal, onDelete, isPendingDelete = false }: MealCardProps) {
           >
             <View style={{ flex: 1 }}>
               <Text style={typography.h3}>
-                Meal {meal.meal_index}
-                {meal.meal_label ? ` · ${meal.meal_label}` : ''}
+                {meal.meal_label ?? `Meal ${meal.sort_order}`}
               </Text>
               <Text style={[typography.caption, { marginTop: spacing.xs }]}>
                 {format(new Date(meal.logged_at), 'HH:mm')}
