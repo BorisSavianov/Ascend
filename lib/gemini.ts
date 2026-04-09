@@ -38,8 +38,16 @@ export async function streamGeminiResponse(
     return;
   }
 
+  // React Native (Expo Go) doesn't expose response.body as a ReadableStream,
+  // so fall back to reading the full response text at once.
   if (!response.body) {
-    onError(new Error("No response body"));
+    try {
+      const text = await response.text();
+      if (text) onChunk(text);
+      onComplete();
+    } catch {
+      onError(new Error("Failed to read response"));
+    }
     return;
   }
 
