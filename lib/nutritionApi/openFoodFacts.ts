@@ -43,6 +43,9 @@ function mapProduct(p: OFFProduct): NutritionSearchResult | null {
   };
 }
 
+const MAX_RETRIES = 3;
+const USER_AGENT = 'AscendTracker/1.0 (https://github.com/BorisSavianov/Ascend)';
+
 export class OpenFoodFactsAPI implements NutritionAPI {
   async search(query: string, signal?: AbortSignal): Promise<NutritionSearchResult[]> {
     const params = new URLSearchParams({
@@ -54,15 +57,45 @@ export class OpenFoodFactsAPI implements NutritionAPI {
       sort_by: 'popularity_key',
     });
 
-    const response = await fetch(`${BASE_URL}?${params}`, { signal });
-    if (!response.ok) {
-      throw new Error(`OpenFoodFacts search failed: ${response.status}`);
+    const url = `${BASE_URL}?${params}`;
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+
+      if (attempt > 0) {
+        // Exponential backoff: 1s, 2s, 4s…
+        const delay = Math.min(1000 * 2 ** (attempt - 1), 4000);
+        await new Promise((r) => setTimeout(r, delay));
+        if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+      }
+
+      try {
+        const response = await fetch(url, {
+          signal,
+          headers: { 'User-Agent': USER_AGENT },
+        });
+
+        if (response.ok) {
+          const data = (await response.json()) as OFFSearchResponse;
+          return data.products
+            .map(mapProduct)
+            .filter((r): r is NutritionSearchResult => r !== null);
+        }
+
+        // Retry on server errors (5xx), throw on client errors (4xx)
+        if (response.status < 500) {
+          throw new Error(`OpenFoodFacts search failed: ${response.status}`);
+        }
+        lastError = new Error(`OpenFoodFacts search failed: ${response.status}`);
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') throw err;
+        lastError = err as Error;
+        // Retry on network errors
+      }
     }
 
-    const data = (await response.json()) as OFFSearchResponse;
-    return data.products
-      .map(mapProduct)
-      .filter((r): r is NutritionSearchResult => r !== null);
+    throw lastError ?? new Error('OpenFoodFacts search failed after retries');
   }
 }
 
