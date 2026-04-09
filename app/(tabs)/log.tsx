@@ -11,16 +11,18 @@ import {
 } from 'react-native';
 import FoodChip from '../../components/FoodChip';
 import MealItemRow from '../../components/MealItemRow';
+import MealLabelSelector from '../../components/MealLabelSelector';
 import { useFrequentFoods } from '../../hooks/useFrequentFoods';
 import { useLogMeal } from '../../hooks/useLogMeal';
+import { useTodayMeals } from '../../hooks/useTodayMeals';
+import { useFoodSearch, cacheApiFood } from '../../hooks/useFoodSearch';
+import type { NutritionSearchResult } from '../../hooks/useFoodSearch';
 import { formatCalories, calculateNutrition } from '../../lib/calculations';
-import { supabase } from '../../lib/supabase';
 import { useAppStore, type AppStore, type MealItemDraft } from '../../store/useAppStore';
 import type { FoodRow } from '../../types/database';
 import Screen from '../../components/ui/Screen';
 import AppHeader from '../../components/ui/AppHeader';
 import TextField from '../../components/ui/TextField';
-import SegmentedControl from '../../components/ui/SegmentedControl';
 import Surface from '../../components/ui/Surface';
 import Button from '../../components/ui/Button';
 import BottomActionBar from '../../components/ui/BottomActionBar';
@@ -47,17 +49,23 @@ function LogScreenContent() {
   const searchInputRef = useRef<TextInput>(null);
   const [searchText, setSearchText] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [searchResults, setSearchResults] = useState<FoodRow[]>([]);
-  const [mealIndex, setMealIndex] = useState<1 | 2>(1);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const { data: frequentFoods = [] } = useFrequentFoods();
+  const { data: todayMeals = [] } = useTodayMeals();
   const { mutate: logMeal, isPending } = useLogMeal();
 
   const selectedItems = useAppStore((s: AppStore) => s.selectedItems);
+  const mealLabel = useAppStore((s: AppStore) => s.mealLabel);
   const updateItemAmount = useAppStore((s: AppStore) => s.updateItemAmount);
   const removeItem = useAppStore((s: AppStore) => s.removeItem);
   const addItem = useAppStore((s: AppStore) => s.addItem);
+  const setMealLabel = useAppStore((s: AppStore) => s.setMealLabel);
+
+  const { localResults, apiResults, isSearchingApi } = useFoodSearch(debouncedSearch);
+
+  // Sort order = next available slot (existing meals + 1)
+  const sortOrder = todayMeals.length + 1;
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -66,42 +74,13 @@ function LogScreenContent() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Debounce: 300ms to be gentle on the API
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchText);
-    }, 200);
+    }, 300);
     return () => clearTimeout(timer);
   }, [searchText]);
-
-  useEffect(() => {
-    if (!debouncedSearch.trim()) {
-      setSearchResults([]);
-      return;
-    }
-
-    const controller = new AbortController();
-
-    async function search() {
-      const q = debouncedSearch.trim();
-      const base = supabase.from('foods').select('*').abortSignal(controller.signal);
-      const escapedQ = q.replace(/%/g, '\\%').replace(/_/g, '\\_');
-      const ftsQ = q.replace(/[!|&<>()]/g, ' ').trim();
-      const filtered =
-        q.length >= 2
-          ? base.textSearch('search_vector', ftsQ, { type: 'websearch' })
-          : base.ilike('name', `%${escapedQ}%`);
-      const { data, error } = await filtered.limit(20);
-
-      if (controller.signal.aborted) return;
-      if (error) {
-        logger.warn('Search error:', error.message);
-      } else {
-        setSearchResults(data ?? []);
-      }
-    }
-    void search();
-    return () => { controller.abort(); };
-  }, [debouncedSearch]);
 
   useEffect(() => {
     if (!toastMessage) return;
@@ -123,22 +102,12 @@ function LogScreenContent() {
     return sum + calories;
   }, 0);
 
-  function handleAddFoodFromSearch(food: FoodRow) {
+  function addFoodRow(food: FoodRow) {
     const existing = selectedItems.find((i: MealItemDraft) => i.foodId === food.id);
     if (existing) {
-      addItem({
-        id: existing.id,
-        foodId: food.id,
-        foodName: food.name,
-        caloriesPer100g: food.calories_per_100g,
-        proteinPer100g: food.protein_per_100g,
-        fatPer100g: food.fat_per_100g,
-        carbsPer100g: food.carbs_per_100g,
-        fiberPer100g: food.fiber_per_100g,
-        amountG: 100,
-      });
+      addItem({ ...existing, amountG: 100 });
     } else {
-      const draft: MealItemDraft = {
+      addItem({
         id: nextDraftId(),
         foodId: food.id,
         foodName: food.name,
@@ -148,16 +117,37 @@ function LogScreenContent() {
         carbsPer100g: food.carbs_per_100g,
         fiberPer100g: food.fiber_per_100g,
         amountG: 100,
-      };
-      addItem(draft);
+      });
+    }
+  }
+
+  async function handleAddApiFood(result: NutritionSearchResult) {
+    try {
+      const food = await cacheApiFood(result);
+      addFoodRow(food);
+    } catch (err) {
+      logger.warn('Failed to cache API food:', String(err));
+      // Add as an anonymous draft without a DB foodId (graceful fallback)
+      addItem({
+        id: nextDraftId(),
+        foodId: null,
+        foodName: result.name,
+        caloriesPer100g: result.caloriesPer100g,
+        proteinPer100g: result.proteinPer100g,
+        fatPer100g: result.fatPer100g,
+        carbsPer100g: result.carbsPer100g,
+        fiberPer100g: result.fiberPer100g,
+        amountG: 100,
+      });
     }
   }
 
   const handleLog = useCallback(() => {
     if (selectedItems.length === 0) return;
+    const label = mealLabel.trim() || `Meal ${sortOrder}`;
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     logMeal(
-      { mealIndex, items: selectedItems },
+      { sortOrder, mealLabel: label, items: selectedItems },
       {
         onSuccess: () => {
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -168,27 +158,29 @@ function LogScreenContent() {
         },
       },
     );
-  }, [logMeal, mealIndex, selectedItems]);
+  }, [logMeal, mealLabel, sortOrder, selectedItems]);
 
   const isSearching = searchText.trim().length > 0;
+
+  type SearchItem =
+    | { type: 'local'; food: FoodRow }
+    | { type: 'api'; result: NutritionSearchResult };
+
+  const searchData: SearchItem[] = [
+    ...localResults.map((f): SearchItem => ({ type: 'local', food: f })),
+    ...apiResults.map((r): SearchItem => ({ type: 'api', result: r })),
+  ];
 
   return (
     <Screen edges={['top', 'left', 'right', 'bottom']}>
       <View style={{ flex: 1 }}>
         <AppHeader
           title="Log meal"
-          subtitle="Search, tap frequent foods, adjust portions, then commit the entry."
+          subtitle="Name your meal, search for foods, adjust portions, then commit."
         />
 
         <View style={{ paddingHorizontal: spacing.xl, gap: spacing.lg, flex: 1 }}>
-          <SegmentedControl
-            options={[
-              { label: 'Meal 1', value: 1 as const },
-              { label: 'Meal 2', value: 2 as const },
-            ]}
-            value={mealIndex}
-            onChange={setMealIndex}
-          />
+          <MealLabelSelector value={mealLabel} onChange={setMealLabel} />
 
           <TextField
             ref={searchInputRef}
@@ -199,7 +191,7 @@ function LogScreenContent() {
             returnKeyType="search"
             label="Food search"
             accessibilityLabel="Search foods"
-            accessibilityHint="Type a food name to search the database"
+            accessibilityHint="Type a food name to search your foods and the Open Food Facts database"
           />
 
           {!isSearching && frequentFoods.length > 0 ? (
@@ -225,18 +217,39 @@ function LogScreenContent() {
             {isSearching ? (
               <Surface style={{ flex: 1, padding: 0, overflow: 'hidden' }}>
                 <FlatList
-                  data={searchResults}
-                  keyExtractor={(item) => item.id}
+                  data={searchData}
+                  keyExtractor={(item) =>
+                    item.type === 'local' ? item.food.id : `api-${item.result.externalId}`
+                  }
                   keyboardShouldPersistTaps="handled"
-                  renderItem={({ item }) => (
-                    <PressableSearchRow item={item} onPress={() => handleAddFoodFromSearch(item)} />
-                  )}
+                  renderItem={({ item }) =>
+                    item.type === 'local' ? (
+                      <PressableSearchRow
+                        item={item.food}
+                        onPress={() => addFoodRow(item.food)}
+                      />
+                    ) : (
+                      <ApiSearchRow
+                        result={item.result}
+                        onPress={() => void handleAddApiFood(item.result)}
+                      />
+                    )
+                  }
+                  ListHeaderComponent={
+                    isSearchingApi ? (
+                      <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.sm }}>
+                        <Text style={[typography.caption, { color: colors.text.tertiary }]}>
+                          Searching Open Food Facts…
+                        </Text>
+                      </View>
+                    ) : null
+                  }
                   ListEmptyComponent={
-                    debouncedSearch.trim() ? (
+                    debouncedSearch.trim() && !isSearchingApi ? (
                       <View style={{ padding: spacing.xl }}>
                         <EmptyState
                           title="No foods found"
-                          message="Try a broader search term or add one of your frequent foods instead."
+                          message="Try a broader search term or add a frequent food instead."
                         />
                       </View>
                     ) : null
@@ -322,20 +335,6 @@ function PressableSearchRow({
         borderBottomColor: colors.border.subtle,
       }}
     >
-      <TextButtonRow item={item} onPress={onPress} />
-    </View>
-  );
-}
-
-function TextButtonRow({
-  item,
-  onPress,
-}: {
-  item: FoodRow;
-  onPress: () => void;
-}) {
-  return (
-    <View>
       <View
         style={{
           flexDirection: 'row',
@@ -355,6 +354,53 @@ function TextButtonRow({
         </View>
         <Text style={[typography.caption, { color: colors.text.secondary }]}>
           {item.calories_per_100g} kcal/100g
+        </Text>
+        <Button
+          label="Add"
+          onPress={onPress}
+          size="md"
+          leading={<Ionicons name="add" size={14} color={colors.bg.canvas} />}
+          style={{ minWidth: 88 }}
+        />
+      </View>
+    </View>
+  );
+}
+
+function ApiSearchRow({
+  result,
+  onPress,
+}: {
+  result: NutritionSearchResult;
+  onPress: () => void;
+}) {
+  return (
+    <View
+      style={{
+        minHeight: 64,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.subtle,
+      }}
+    >
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md,
+          gap: spacing.md,
+        }}
+      >
+        <View style={{ flex: 1 }}>
+          <Text style={typography.body}>{result.name}</Text>
+          {result.brand ? (
+            <Text style={[typography.caption, { marginTop: spacing.xs }]}>
+              {result.brand}
+            </Text>
+          ) : null}
+        </View>
+        <Text style={[typography.caption, { color: colors.text.secondary }]}>
+          {result.caloriesPer100g} kcal/100g
         </Text>
         <Button
           label="Add"
