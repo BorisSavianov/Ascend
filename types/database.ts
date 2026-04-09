@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.4"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       ai_insights_cache: {
@@ -99,6 +74,42 @@ export type Database = {
           recorded_at?: string
           user_id?: string
           weight_kg?: number | null
+        }
+        Relationships: []
+      }
+      exercise_templates: {
+        Row: {
+          created_at: string
+          equipment: string
+          id: string
+          image_key: string | null
+          muscle_group: string
+          name: string
+          target_reps_max: number
+          target_reps_min: number
+          target_sets: number
+        }
+        Insert: {
+          created_at?: string
+          equipment: string
+          id?: string
+          image_key?: string | null
+          muscle_group: string
+          name: string
+          target_reps_max?: number
+          target_reps_min?: number
+          target_sets?: number
+        }
+        Update: {
+          created_at?: string
+          equipment?: string
+          id?: string
+          image_key?: string | null
+          muscle_group?: string
+          name?: string
+          target_reps_max?: number
+          target_reps_min?: number
+          target_sets?: number
         }
         Relationships: []
       }
@@ -181,6 +192,7 @@ export type Database = {
           calories_per_100g: number
           carbs_per_100g: number
           created_at: string
+          external_id: string | null
           fat_per_100g: number
           fiber_per_100g: number
           id: string
@@ -191,12 +203,11 @@ export type Database = {
           protein_per_100g: number
           search_vector: unknown
           sodium_per_100g: number | null
+          source: string | null
           sugar_per_100g: number | null
           updated_at: string
           use_count: number
           user_id: string
-          source: string | null
-          external_id: string | null
         }
         Insert: {
           barcode?: string | null
@@ -204,6 +215,7 @@ export type Database = {
           calories_per_100g: number
           carbs_per_100g?: number
           created_at?: string
+          external_id?: string | null
           fat_per_100g?: number
           fiber_per_100g?: number
           id?: string
@@ -214,12 +226,11 @@ export type Database = {
           protein_per_100g?: number
           search_vector?: unknown
           sodium_per_100g?: number | null
+          source?: string | null
           sugar_per_100g?: number | null
           updated_at?: string
           use_count?: number
           user_id?: string
-          source?: string | null
-          external_id?: string | null
         }
         Update: {
           barcode?: string | null
@@ -227,6 +238,7 @@ export type Database = {
           calories_per_100g?: number
           carbs_per_100g?: number
           created_at?: string
+          external_id?: string | null
           fat_per_100g?: number
           fiber_per_100g?: number
           id?: string
@@ -237,14 +249,93 @@ export type Database = {
           protein_per_100g?: number
           search_vector?: unknown
           sodium_per_100g?: number | null
+          source?: string | null
           sugar_per_100g?: number | null
           updated_at?: string
           use_count?: number
           user_id?: string
-          source?: string | null
-          external_id?: string | null
         }
         Relationships: []
+      }
+      logged_exercises: {
+        Row: {
+          exercise_template_id: string
+          id: string
+          session_id: string
+          sort_order: number
+        }
+        Insert: {
+          exercise_template_id: string
+          id?: string
+          session_id: string
+          sort_order?: number
+        }
+        Update: {
+          exercise_template_id?: string
+          id?: string
+          session_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "logged_exercises_exercise_template_id_fkey"
+            columns: ["exercise_template_id"]
+            isOneToOne: false
+            referencedRelation: "exercise_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "logged_exercises_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "workout_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      logged_sets: {
+        Row: {
+          completed_at: string | null
+          id: string
+          is_completed: boolean
+          logged_exercise_id: string
+          notes: string | null
+          reps: number | null
+          rpe: number | null
+          set_number: number
+          weight_kg: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          id?: string
+          is_completed?: boolean
+          logged_exercise_id: string
+          notes?: string | null
+          reps?: number | null
+          rpe?: number | null
+          set_number: number
+          weight_kg?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          id?: string
+          is_completed?: boolean
+          logged_exercise_id?: string
+          notes?: string | null
+          reps?: number | null
+          rpe?: number | null
+          set_number?: number
+          weight_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "logged_sets_logged_exercise_id_fkey"
+            columns: ["logged_exercise_id"]
+            isOneToOne: false
+            referencedRelation: "logged_exercises"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       meal_items: {
         Row: {
@@ -314,9 +405,9 @@ export type Database = {
           created_at: string
           id: string
           logged_at: string
-          sort_order: number
           meal_label: string | null
           notes: string | null
+          sort_order: number
           updated_at: string
           user_id: string
         }
@@ -324,9 +415,9 @@ export type Database = {
           created_at?: string
           id?: string
           logged_at?: string
-          sort_order?: number
           meal_label?: string | null
           notes?: string | null
+          sort_order?: number
           updated_at?: string
           user_id?: string
         }
@@ -334,13 +425,155 @@ export type Database = {
           created_at?: string
           id?: string
           logged_at?: string
-          sort_order?: number
           meal_label?: string | null
           notes?: string | null
+          sort_order?: number
           updated_at?: string
           user_id?: string
         }
         Relationships: []
+      }
+      workout_day_exercises: {
+        Row: {
+          exercise_template_id: string
+          id: string
+          sort_order: number
+          target_reps_max: number | null
+          target_reps_min: number | null
+          target_sets: number | null
+          workout_day_id: string
+        }
+        Insert: {
+          exercise_template_id: string
+          id?: string
+          sort_order?: number
+          target_reps_max?: number | null
+          target_reps_min?: number | null
+          target_sets?: number | null
+          workout_day_id: string
+        }
+        Update: {
+          exercise_template_id?: string
+          id?: string
+          sort_order?: number
+          target_reps_max?: number | null
+          target_reps_min?: number | null
+          target_sets?: number | null
+          workout_day_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_day_exercises_exercise_template_id_fkey"
+            columns: ["exercise_template_id"]
+            isOneToOne: false
+            referencedRelation: "exercise_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workout_day_exercises_workout_day_id_fkey"
+            columns: ["workout_day_id"]
+            isOneToOne: false
+            referencedRelation: "workout_days"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workout_days: {
+        Row: {
+          day_of_week: number
+          id: string
+          is_rest_day: boolean
+          name: string
+          program_id: string
+        }
+        Insert: {
+          day_of_week: number
+          id?: string
+          is_rest_day?: boolean
+          name: string
+          program_id: string
+        }
+        Update: {
+          day_of_week?: number
+          id?: string
+          is_rest_day?: boolean
+          name?: string
+          program_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_days_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "workout_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workout_programs: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      workout_sessions: {
+        Row: {
+          created_at: string
+          date: string
+          ended_at: string | null
+          id: string
+          notes: string | null
+          started_at: string
+          user_id: string
+          workout_day_id: string
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          ended_at?: string | null
+          id?: string
+          notes?: string | null
+          started_at?: string
+          user_id?: string
+          workout_day_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          ended_at?: string | null
+          id?: string
+          notes?: string | null
+          started_at?: string
+          user_id?: string
+          workout_day_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_sessions_workout_day_id_fkey"
+            columns: ["workout_day_id"]
+            isOneToOne: false
+            referencedRelation: "workout_days"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -373,6 +606,7 @@ export type Database = {
         Returns: undefined
       }
       seed_personal_foods: { Args: { p_user_id: string }; Returns: undefined }
+      seed_workout_program: { Args: { p_user_id: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
@@ -501,20 +735,15 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },
 } as const
 
-// ─── Convenience row type aliases ─────────────────────────────────────────────
-
-export type FoodRow = Tables<'foods'>;
-export type MealRow = Tables<'meals'>;
-export type MealItemRow = Tables<'meal_items'>;
-export type DailySummaryRow = Tables<'daily_summaries'>;
-export type FastingLog = Tables<'fasting_logs'>;
-export type BodyMetricRow = Tables<'body_metrics'>;
-export type ExerciseRow = Tables<'exercises'>;
+export type FoodRow = Database['public']['Tables']['foods']['Row'];
+export type MealRow = Database['public']['Tables']['meals']['Row'];
+export type MealItemRow = Database['public']['Tables']['meal_items']['Row'];
+export type DailySummaryRow = Database['public']['Views']['daily_summaries']['Row'];
+export type ExerciseRow = Database['public']['Tables']['exercises']['Row'];
+export type FastingLog = Database['public']['Tables']['fasting_logs']['Row'];
+export type BodyMetricRow = Database['public']['Tables']['body_metrics']['Row'];

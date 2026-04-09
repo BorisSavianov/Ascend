@@ -61,6 +61,7 @@ export default function RootLayout() {
 
       if (session) {
         await seedFoodsIfEmpty(session.user.id);
+        await seedWorkoutProgramIfEmpty(session.user.id);
         // Warm the frequent-foods cache so LogScreen renders instantly
         void queryClient.prefetchQuery({
           queryKey: ['frequent_foods'],
@@ -127,7 +128,10 @@ export default function RootLayout() {
         // to avoid double-navigation and double-seeding on cold start.
         if (!initDoneRef.current) return;
         if (session) {
-          void seedFoodsIfEmpty(session.user.id).then(async () => {
+          void Promise.all([
+        seedFoodsIfEmpty(session.user.id),
+        seedWorkoutProgramIfEmpty(session.user.id),
+      ]).then(async () => {
             // Warm frequent-foods cache on sign-in
             void queryClient.prefetchQuery({
               queryKey: ['frequent_foods'],
@@ -198,6 +202,28 @@ async function processDeepLinkUrl(url: string): Promise<void> {
 
   const { error } = await supabase.auth.setSession({ access_token, refresh_token });
   if (error) logger.warn('setSession error:', error.message);
+}
+
+async function seedWorkoutProgramIfEmpty(userId: string): Promise<void> {
+  const { count, error } = await supabase
+    .from('workout_programs')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('is_active', true);
+
+  if (error) {
+    logger.warn('Workout program seed check error:', error.message);
+    return;
+  }
+
+  if ((count ?? 0) === 0) {
+    const { error: seedError } = await supabase.rpc('seed_workout_program', {
+      p_user_id: userId,
+    });
+    if (seedError) {
+      logger.warn('Workout program seed error:', seedError.message);
+    }
+  }
 }
 
 async function seedFoodsIfEmpty(userId: string): Promise<void> {
