@@ -20,6 +20,9 @@ export function useConversation(windowDays: number) {
   const isStreamingRef = useRef(false);
   const pendingChunkRef = useRef('');
   const rafHandleRef = useRef<number | null>(null);
+  // Ref so sendMessage always reads the latest windowDays without re-creating the callback
+  const windowDaysRef = useRef(windowDays);
+  windowDaysRef.current = windowDays;
 
   const calorieTarget = useAppStore((s) => s.calorieTarget);
   const macroTargets = useAppStore((s) => s.macroTargets);
@@ -53,46 +56,47 @@ export function useConversation(windowDays: number) {
 
   async function syncThreadFromSupabase(threadId: string) {
     try {
-    const [messagesRes, threadRes] = await Promise.all([
-      supabase
-        .from('ai_messages')
-        .select('id, role, content, path, created_at')
-        .eq('thread_id', threadId)
-        .order('created_at', { ascending: true })
-        .limit(MAX_LOCAL_MESSAGES),
-      supabase
-        .from('ai_threads')
-        .select('id, title, last_active')
-        .eq('id', threadId)
-        .maybeSingle(),
-    ]);
-    if (!threadRes.data) return;
+      const [messagesRes, threadRes] = await Promise.all([
+        supabase
+          .from('ai_messages')
+          .select('id, role, content, path, created_at')
+          .eq('thread_id', threadId)
+          .order('created_at', { ascending: true })
+          .limit(MAX_LOCAL_MESSAGES),
+        supabase
+          .from('ai_threads')
+          .select('id, title, last_active')
+          .eq('id', threadId)
+          .maybeSingle(),
+      ]);
+      if (!threadRes.data) return;
 
-    const synced: LocalThread = {
-      id: threadRes.data.id,
-      title: threadRes.data.title,
-      lastActive: threadRes.data.last_active,
-      messages: (messagesRes.data ?? []).map((m) => ({
-        id: m.id,
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-        path: (m.path ?? undefined) as 'simple' | 'complex' | undefined,
-        createdAt: m.created_at,
-      })),
-    };
-    await AsyncStorage.setItem(threadKey(threadId), JSON.stringify(synced));
-    setThread(synced);
-    await updateThreadIndex({ id: synced.id, title: synced.title, lastActive: synced.lastActive });
+      const synced: LocalThread = {
+        id: threadRes.data.id,
+        title: threadRes.data.title,
+        lastActive: threadRes.data.last_active,
+        messages: (messagesRes.data ?? []).map((m) => ({
+          id: m.id,
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+          path: (m.path ?? undefined) as 'simple' | 'complex' | undefined,
+          createdAt: m.created_at,
+        })),
+      };
+      await AsyncStorage.setItem(threadKey(threadId), JSON.stringify(synced));
+      setThread(synced);
+      updateThreadIndex({ id: synced.id, title: synced.title, lastActive: synced.lastActive });
     } catch { /* background sync failure — local state already displayed */ }
   }
 
-  async function updateThreadIndex(entry: ThreadIndexEntry) {
-    const indexStr = await AsyncStorage.getItem(THREAD_INDEX_KEY);
-    const index: ThreadIndexEntry[] = indexStr ? JSON.parse(indexStr) : [];
-    const filtered = index.filter((e) => e.id !== entry.id);
-    const updated = [entry, ...filtered];
-    await AsyncStorage.setItem(THREAD_INDEX_KEY, JSON.stringify(updated));
-    setThreadIndex(updated);
+  // Uses functional setState to avoid AsyncStorage read-modify-write races
+  function updateThreadIndex(entry: ThreadIndexEntry) {
+    setThreadIndex((prev) => {
+      const filtered = prev.filter((e) => e.id !== entry.id);
+      const updated = [entry, ...filtered];
+      void AsyncStorage.setItem(THREAD_INDEX_KEY, JSON.stringify(updated));
+      return updated;
+    });
   }
 
   const createNewThread = useCallback(async () => {
@@ -100,20 +104,23 @@ export function useConversation(windowDays: number) {
     const now = new Date().toISOString();
     const newThread: LocalThread = { id, title: null, lastActive: now, messages: [] };
 
-    const indexStr = await AsyncStorage.getItem(THREAD_INDEX_KEY);
-    const index: ThreadIndexEntry[] = indexStr ? JSON.parse(indexStr) : [];
-    if (index.length >= MAX_LOCAL_THREADS) {
-      const oldest = index[index.length - 1];
-      await AsyncStorage.removeItem(threadKey(oldest.id));
-      index.pop();
-    }
-    const updated = [{ id, title: null, lastActive: now }, ...index];
-    await Promise.all([
-      AsyncStorage.setItem(THREAD_INDEX_KEY, JSON.stringify(updated)),
+    // Use functional update so we read latest state — avoids AsyncStorage read race
+    let evictedId: string | null = null;
+    let finalIndex: ThreadIndexEntry[] = [];
+    setThreadIndex((prev) => {
+      evictedId = prev.length >= MAX_LOCAL_THREADS ? prev[prev.length - 1].id : null;
+      const trimmed = evictedId ? prev.slice(0, -1) : prev;
+      finalIndex = [{ id, title: null, lastActive: now }, ...trimmed];
+      void AsyncStorage.setItem(THREAD_INDEX_KEY, JSON.stringify(finalIndex));
+      return finalIndex;
+    });
+
+    const ops: Promise<void>[] = [
       AsyncStorage.setItem(threadKey(id), JSON.stringify(newThread)),
       AsyncStorage.setItem(ACTIVE_THREAD_KEY, id),
-    ]);
-    setThreadIndex(updated);
+    ];
+    if (evictedId) ops.push(AsyncStorage.removeItem(threadKey(evictedId)));
+    await Promise.all(ops);
     setThread(newThread);
   }, []);
 
@@ -131,18 +138,19 @@ export function useConversation(windowDays: number) {
 
   const deleteThread = useCallback(async (threadId: string) => {
     await AsyncStorage.removeItem(threadKey(threadId));
-    const indexStr = await AsyncStorage.getItem(THREAD_INDEX_KEY);
-    const index: ThreadIndexEntry[] = indexStr ? JSON.parse(indexStr) : [];
-    const updated = index.filter((e) => e.id !== threadId);
-    await AsyncStorage.setItem(THREAD_INDEX_KEY, JSON.stringify(updated));
-    setThreadIndex(updated);
+    let updatedIndex: ThreadIndexEntry[] = [];
+    setThreadIndex((prev) => {
+      updatedIndex = prev.filter((e) => e.id !== threadId);
+      void AsyncStorage.setItem(THREAD_INDEX_KEY, JSON.stringify(updatedIndex));
+      return updatedIndex;
+    });
     // Delete from Supabase (cascade deletes messages); best-effort
     await supabase.from('ai_threads').delete().eq('id', threadId).then(() => {}, () => {});
     // If we deleted the active thread, create a new one
     const activeId = await AsyncStorage.getItem(ACTIVE_THREAD_KEY);
     if (activeId === threadId) {
-      if (updated.length > 0) {
-        await loadThread(updated[0].id);
+      if (updatedIndex.length > 0) {
+        await loadThread(updatedIndex[0].id);
       } else {
         await createNewThread();
       }
@@ -152,6 +160,11 @@ export function useConversation(windowDays: number) {
   const sendMessage = useCallback(async (question: string) => {
     if (isStreamingRef.current || !thread) return;
     setError(null);
+
+    // Capture thread ID at call time — used for all storage writes in callbacks below.
+    // Using a captured ID (not prev.id) prevents writing streaming content into a different
+    // thread if the user switches threads while the stream is in flight.
+    const streamingThreadId = thread.id;
 
     const userMsg: LocalMessage = {
       id: crypto.randomUUID(),
@@ -172,7 +185,7 @@ export function useConversation(windowDays: number) {
       messages: [...thread.messages, userMsg, assistantMsg],
     };
     setThread(optimisticThread);
-    await AsyncStorage.setItem(threadKey(thread.id), JSON.stringify(optimisticThread));
+    await AsyncStorage.setItem(threadKey(streamingThreadId), JSON.stringify(optimisticThread));
 
     isStreamingRef.current = true;
     setIsStreaming(true);
@@ -194,9 +207,9 @@ export function useConversation(windowDays: number) {
     }
 
     await apiSendMessage({
-      threadId: thread.id,
+      threadId: streamingThreadId,
       message: question,
-      windowDays,
+      windowDays: windowDaysRef.current,
       userTargets: { calorieTarget, macroTargets, fastingTargetHours },
       onChunk: (chunk) => {
         pendingChunkRef.current += chunk;
@@ -219,13 +232,13 @@ export function useConversation(windowDays: number) {
             msgs[msgs.length - 1] = { ...last, content: last.content + remaining, path };
           }
           const next = { ...prev, messages: msgs };
-          void AsyncStorage.setItem(threadKey(prev.id), JSON.stringify(next));
+          void AsyncStorage.setItem(threadKey(streamingThreadId), JSON.stringify(next));
           return next;
         });
         isStreamingRef.current = false;
         setIsStreaming(false);
         // Sync title from Supabase (Edge Function sets it on first message)
-        void syncThreadTitleFromSupabase(thread.id);
+        void syncThreadTitleFromSupabase(streamingThreadId);
       },
       onError: (err) => {
         if (rafHandleRef.current !== null) {
@@ -240,29 +253,31 @@ export function useConversation(windowDays: number) {
           if (msgs[msgs.length - 1]?.role === 'assistant') msgs.pop();
           const next = { ...prev, messages: msgs };
           // Sync corrected state back to AsyncStorage to remove the dangling assistant placeholder
-          void AsyncStorage.setItem(threadKey(prev.id), JSON.stringify(next));
+          void AsyncStorage.setItem(threadKey(streamingThreadId), JSON.stringify(next));
           return next;
         });
         isStreamingRef.current = false;
         setIsStreaming(false);
       },
     });
-  }, [thread, windowDays, calorieTarget, macroTargets, fastingTargetHours]);
+  }, [thread, calorieTarget, macroTargets, fastingTargetHours]);
 
   async function syncThreadTitleFromSupabase(threadId: string) {
-    const { data } = await supabase
-      .from('ai_threads')
-      .select('title')
-      .eq('id', threadId)
-      .maybeSingle();
-    if (data?.title) {
-      setThread((prev) => (prev ? { ...prev, title: data.title } : prev));
-      await updateThreadIndex({
-        id: threadId,
-        title: data.title,
-        lastActive: new Date().toISOString(),
-      });
-    }
+    try {
+      const { data } = await supabase
+        .from('ai_threads')
+        .select('title')
+        .eq('id', threadId)
+        .maybeSingle();
+      if (data?.title) {
+        setThread((prev) => (prev ? { ...prev, title: data.title } : prev));
+        updateThreadIndex({
+          id: threadId,
+          title: data.title,
+          lastActive: new Date().toISOString(),
+        });
+      }
+    } catch { /* title sync is best-effort */ }
   }
 
   const clearError = useCallback(() => setError(null), []);
