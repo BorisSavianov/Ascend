@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
+import * as Clipboard from 'expo-clipboard';
 import {
   ActivityIndicator,
   Animated,
@@ -11,14 +12,21 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useGeminiChat, type ChatMessage } from '../../hooks/useGeminiChat';
-import { QUICK_PROMPTS } from '../../constants/prompts';
+import Markdown from 'react-native-markdown-display';
+import { useConversation } from '../../hooks/useConversation';
+import { usePushToken } from '../../hooks/usePushToken';
+import { useProactiveInsight } from '../../hooks/useProactiveInsight';
+import type { LocalMessage } from '../../types/conversation';
+import { QUICK_PROMPTS, getRotatedPrompts } from '../../constants/prompts';
 import Screen from '../../components/ui/Screen';
 import AppHeader from '../../components/ui/AppHeader';
 import Chip from '../../components/ui/Chip';
 import Surface from '../../components/ui/Surface';
 import Button from '../../components/ui/Button';
 import BottomActionBar from '../../components/ui/BottomActionBar';
+import PathBadge from '../../components/PathBadge';
+import ThreadSheet from '../../components/ThreadSheet';
+import ProactiveInsightBanner from '../../components/ProactiveInsightBanner';
 import { colors, spacing, typography } from '../../lib/theme';
 
 function StreamingDots() {
@@ -31,22 +39,13 @@ function StreamingDots() {
       Animated.loop(
         Animated.sequence([
           Animated.delay(index * 120),
-          Animated.timing(value, {
-            toValue: 1,
-            duration: 280,
-            useNativeDriver: true,
-          }),
-          Animated.timing(value, {
-            toValue: 0.35,
-            duration: 280,
-            useNativeDriver: true,
-          }),
+          Animated.timing(value, { toValue: 1, duration: 280, useNativeDriver: true }),
+          Animated.timing(value, { toValue: 0.35, duration: 280, useNativeDriver: true }),
         ]),
       ),
     );
-
-    animations.forEach((animation) => animation.start());
-    return () => animations.forEach((animation) => animation.stop());
+    animations.forEach((a) => a.start());
+    return () => animations.forEach((a) => a.stop());
   }, [values]);
 
   return (
@@ -55,9 +54,7 @@ function StreamingDots() {
         <Animated.View
           key={index}
           style={{
-            width: 7,
-            height: 7,
-            borderRadius: 3.5,
+            width: 7, height: 7, borderRadius: 3.5,
             backgroundColor: colors.text.secondary,
             opacity: value,
           }}
@@ -67,43 +64,57 @@ function StreamingDots() {
   );
 }
 
-function ChatBubble({ message }: { message: ChatMessage }) {
+function ChatBubble({ message }: { message: LocalMessage }) {
   const isUser = message.role === 'user';
 
   return (
-    <View
-      style={{
-        alignItems: isUser ? 'flex-end' : 'flex-start',
-        marginBottom: spacing.md,
-        marginHorizontal: spacing.xl,
-      }}
-    >
+    <View style={{ marginBottom: spacing.xs }}>
       <View
         style={{
-          maxWidth: '84%',
-          backgroundColor: isUser ? colors.accent.primaryMuted : colors.bg.surfaceRaised,
-          borderRadius: 20,
-          borderWidth: 1,
-          borderColor: isUser ? colors.accent.primary : colors.border.default,
-          paddingHorizontal: spacing.lg,
-          paddingVertical: spacing.md,
+          alignItems: isUser ? 'flex-end' : 'flex-start',
+          marginHorizontal: spacing.xl,
         }}
       >
-        {message.isStreaming && message.content === '' ? (
-          <StreamingDots />
-        ) : (
-          <Text
-            style={[
-              typography.bodySm,
-              {
-                color: colors.text.primary,
-              },
-            ]}
-          >
-            {message.content}
-          </Text>
-        )}
+        <View
+          style={{
+            maxWidth: '84%',
+            backgroundColor: isUser ? colors.accent.primaryMuted : colors.bg.surfaceRaised,
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: isUser ? colors.accent.primary : colors.border.default,
+            paddingHorizontal: spacing.lg,
+            paddingVertical: spacing.md,
+          }}
+        >
+          {message.role === 'assistant' && message.content === '' ? (
+            <StreamingDots />
+          ) : isUser ? (
+            <Text style={[typography.bodySm, { color: colors.text.primary }]}>
+              {message.content}
+            </Text>
+          ) : (
+            <Markdown
+              style={{
+                body: { ...typography.bodySm, color: colors.text.primary, margin: 0 },
+                paragraph: { marginTop: 0, marginBottom: 4 },
+                strong: { fontWeight: '700', color: colors.text.primary },
+                em: { color: colors.text.primary },
+                bullet_list: { marginVertical: 4 },
+                ordered_list: { marginVertical: 4 },
+                bullet_list_item: { color: colors.text.primary },
+                ordered_list_item: { color: colors.text.primary },
+                code_inline: { color: colors.text.primary },
+                heading1: { color: colors.text.primary, marginVertical: 4 },
+                heading2: { color: colors.text.primary, marginVertical: 4 },
+                heading3: { color: colors.text.primary, marginVertical: 4 },
+              }}
+            >
+              {message.content}
+            </Markdown>
+          )}
+        </View>
       </View>
+      {message.role === 'assistant' && message.path === 'complex' && <PathBadge />}
     </View>
   );
 }
@@ -139,9 +150,32 @@ export default function InsightsScreen() {
 }
 
 function InsightsScreenContent() {
-  const { messages, isStreaming, error, sendMessage, clearMessages, clearError } = useGeminiChat();
+  const [windowDays, setWindowDays] = useState(14);
   const [inputText, setInputText] = useState('');
-  const flatListRef = useRef<FlatList<ChatMessage>>(null);
+  const [showThreadSheet, setShowThreadSheet] = useState(false);
+  const [promptDomain, setPromptDomain] = useState<keyof typeof QUICK_PROMPTS>('nutrition');
+  const flatListRef = useRef<FlatList<LocalMessage>>(null);
+
+  const {
+    messages,
+    isStreaming,
+    error,
+    threadIndex,
+    sendMessage,
+    createNewThread,
+    loadThread,
+    deleteThread,
+    clearError,
+  } = useConversation(windowDays);
+
+  usePushToken();
+  const { insight, dismiss } = useProactiveInsight();
+
+  // Rotate prompt domain on each mount
+  useEffect(() => {
+    const domains = Object.keys(QUICK_PROMPTS) as Array<keyof typeof QUICK_PROMPTS>;
+    setPromptDomain(domains[Math.floor(Date.now() / 1000) % domains.length]);
+  }, []);
 
   function handleSend() {
     const text = inputText.trim();
@@ -155,18 +189,50 @@ function InsightsScreenContent() {
     void sendMessage(prompt);
   }
 
+  function handleCopyLast() {
+    const last = messages.findLast((m) => m.role === 'assistant');
+    if (last) void Clipboard.setStringAsync(last.content);
+  }
+
+  const windowOptions: Array<{ label: string; value: number }> = [
+    { label: '7d', value: 7 },
+    { label: '14d', value: 14 },
+    { label: '30d', value: 30 },
+  ];
+
   return (
     <Screen edges={['top', 'left', 'right', 'bottom']}>
       <View style={{ flex: 1 }}>
         <AppHeader
-          title="Insights"
-          subtitle="Ask for patterns, summaries, and anomalies without leaving the product’s quieter visual rhythm."
+          title="Fitness Assistant"
           trailing={
-            messages.length > 0 ? (
-              <Button label="Clear" onPress={clearMessages} variant="ghost" size="md" />
-            ) : undefined
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <Button
+                label="Threads"
+                onPress={() => setShowThreadSheet(true)}
+                variant="ghost"
+                size="md"
+              />
+              <Button
+                label="New"
+                onPress={() => { void createNewThread(); }}
+                variant="ghost"
+                size="md"
+              />
+            </View>
           }
         />
+
+        {insight ? (
+          <ProactiveInsightBanner
+            insight={insight}
+            onDismiss={dismiss}
+            onAskAboutThis={(question) => {
+              setInputText('');
+              void sendMessage(question);
+            }}
+          />
+        ) : null}
 
         <FlatList
           ref={flatListRef}
@@ -181,65 +247,90 @@ function InsightsScreenContent() {
           }}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
           ListEmptyComponent={
-            <View
-              style={{
-                flex: 1,
-                justifyContent: 'center',
-                paddingHorizontal: spacing.xl,
-              }}
-            >
+            <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: spacing.xl }}>
               <Surface elevated>
-                <Text style={typography.h3}>Ask about your recent patterns</Text>
+                <Text style={typography.h3}>Ask about your fitness data</Text>
                 <Text style={[typography.bodySm, { marginTop: spacing.sm }]}>
-                  The assistant can summarize nutrition trends, compare weeks, and highlight unusual days.
+                  Ask about nutrition, training, body composition, or fasting — or across all of them together.
                 </Text>
               </Surface>
             </View>
           }
         />
 
-        {error ? (
-          <ErrorBanner message={error} onDismiss={clearError} />
-        ) : null}
+        {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
-        {messages.length === 0 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ flexGrow: 0 }}
-            contentContainerStyle={{
-              paddingHorizontal: spacing.xl,
-              paddingBottom: spacing.md,
-              gap: spacing.sm,
-            }}
-          >
-            {QUICK_PROMPTS.map((prompt) => (
-              <Chip
-                key={prompt}
-                label={prompt}
-                onPress={() => handleQuickPrompt(prompt)}
-              />
-            ))}
-          </ScrollView>
-        ) : null}
-
-        <BottomActionBar
-          style={{
-            paddingTop: spacing.sm,
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ flexGrow: 0 }}
+          contentContainerStyle={{
+            paddingHorizontal: spacing.xl,
+            paddingBottom: spacing.sm,
+            gap: spacing.sm,
           }}
         >
+          {getRotatedPrompts(promptDomain).map((prompt) => (
+            <Chip
+              key={prompt}
+              label={prompt}
+              onPress={() => handleQuickPrompt(prompt)}
+            />
+          ))}
+        </ScrollView>
+
+        <BottomActionBar style={{ paddingTop: spacing.sm }}>
           <Surface overlay elevated style={{ padding: spacing.md }}>
+            {/* Window selector */}
             <View
               style={{
                 flexDirection: 'row',
-                alignItems: 'flex-end',
-                gap: spacing.md,
+                gap: spacing.sm,
+                marginBottom: spacing.sm,
+                alignItems: 'center',
               }}
             >
+              {windowOptions.map((opt) => (
+                <Pressable
+                  key={opt.value}
+                  onPress={() => setWindowDays(opt.value)}
+                  style={{
+                    paddingHorizontal: spacing.sm,
+                    paddingVertical: 4,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor:
+                      windowDays === opt.value ? colors.accent.primary : colors.border.default,
+                    backgroundColor:
+                      windowDays === opt.value ? colors.accent.primaryMuted : 'transparent',
+                  }}
+                >
+                  <Text
+                    style={[
+                      typography.caption,
+                      {
+                        color:
+                          windowDays === opt.value ? colors.accent.primary : colors.text.secondary,
+                      },
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              ))}
+              <View style={{ flex: 1 }} />
+              {messages.some((m) => m.role === 'assistant') ? (
+                <Pressable onPress={handleCopyLast}>
+                  <Ionicons name="copy-outline" size={16} color={colors.text.tertiary} />
+                </Pressable>
+              ) : null}
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: spacing.md }}>
               <TextInput
                 value={inputText}
                 onChangeText={setInputText}
-                placeholder="Ask anything about your nutrition data"
+                placeholder="Ask anything about your fitness data"
                 placeholderTextColor={colors.text.tertiary}
                 multiline
                 numberOfLines={1}
@@ -292,6 +383,24 @@ function InsightsScreenContent() {
           </Surface>
         </BottomActionBar>
       </View>
+
+      <ThreadSheet
+        visible={showThreadSheet}
+        threads={threadIndex}
+        onClose={() => setShowThreadSheet(false)}
+        onSelectThread={(id) => {
+          void loadThread(id);
+          setShowThreadSheet(false);
+        }}
+        onDeleteThread={(id) => {
+          setShowThreadSheet(false); // close immediately to prevent double-tap race
+          void deleteThread(id);
+        }}
+        onNewThread={() => {
+          void createNewThread();
+          setShowThreadSheet(false);
+        }}
+      />
     </Screen>
   );
 }

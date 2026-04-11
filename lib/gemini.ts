@@ -3,6 +3,7 @@ import { supabase } from "./supabase";
 
 const FUNCTIONS_BASE = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1`;
 const EDGE_FUNCTION_URL = `${FUNCTIONS_BASE}/gemini`;
+const FITNESS_AGENT_URL = `${FUNCTIONS_BASE}/fitness-agent`;
 
 export async function streamGeminiResponse(
   question: string,
@@ -88,4 +89,79 @@ export async function triggerExport(
 
   if (!response.ok) throw new Error(`Export failed: ${response.status}`);
   return response.blob();
+}
+
+export async function sendMessage(params: {
+  threadId: string;
+  message: string;
+  windowDays: number;
+  userTargets: {
+    calorieTarget: number;
+    macroTargets: { protein: number; fat: number; carbs: number };
+    fastingTargetHours: number;
+  };
+  onChunk: (chunk: string) => void;
+  onComplete: (path: "simple" | "complex") => void;
+  onError: (error: Error) => void;
+}): Promise<void> {
+  const { data, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !data.session) {
+    params.onError(new Error("Not authenticated"));
+    return;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(FITNESS_AGENT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${data.session.access_token}`,
+      },
+      body: JSON.stringify({
+        thread_id: params.threadId,
+        message: params.message,
+        window_days: params.windowDays,
+        user_targets: params.userTargets,
+      }),
+    });
+  } catch {
+    params.onError(new Error("Network error — check connection"));
+    return;
+  }
+
+  if (!response.ok) {
+    params.onError(new Error(`Request failed: ${response.status}`));
+    return;
+  }
+
+  const rawPath = response.headers.get("X-Path");
+  const path: "simple" | "complex" = rawPath === "complex" ? "complex" : "simple";
+
+  if (!response.body) {
+    try {
+      const text = await response.text();
+      if (text) params.onChunk(text);
+      params.onComplete(path);
+    } catch {
+      params.onError(new Error("Failed to read response"));
+    }
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      params.onChunk(decoder.decode(value, { stream: true }));
+    }
+    const remaining = decoder.decode();
+    if (remaining) params.onChunk(remaining);
+    params.onComplete(path);
+  } catch {
+    params.onError(new Error("Stream interrupted"));
+  }
 }
