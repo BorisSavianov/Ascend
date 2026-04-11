@@ -4,8 +4,14 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 
+// Module-level guard so the permission + upsert flow runs at most once per app session,
+// even if InsightsScreen is unmounted and remounted (e.g., tab switches).
+let tokenRegistered = false;
+
 export function usePushToken() {
   useEffect(() => {
+    if (tokenRegistered) return;
+    tokenRegistered = true;
     void registerToken();
   }, []);
 }

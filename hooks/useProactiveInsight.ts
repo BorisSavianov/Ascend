@@ -9,20 +9,24 @@ export function useProactiveInsight() {
 
   useFocusEffect(
     useCallback(() => {
-      void fetchLatestInsight();
+      let cancelled = false;
+
+      void (async () => {
+        try {
+          const { data } = await supabase
+            .from('ai_proactive_insights')
+            .select('*')
+            .eq('read', false)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (!cancelled) setInsight(data ?? null);
+        } catch { /* fetch is best-effort */ }
+      })();
+
+      return () => { cancelled = true; };
     }, []),
   );
-
-  async function fetchLatestInsight() {
-    const { data } = await supabase
-      .from('ai_proactive_insights')
-      .select('*')
-      .eq('read', false)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    setInsight(data ?? null);
-  }
 
   function dismiss() {
     setInsight(null);

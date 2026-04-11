@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
+import * as Clipboard from 'expo-clipboard';
 import {
   ActivityIndicator,
   Animated,
-  Clipboard,
   FlatList,
   Pressable,
   ScrollView,
@@ -191,7 +191,7 @@ function InsightsScreenContent() {
 
   function handleCopyLast() {
     const last = messages.findLast((m) => m.role === 'assistant');
-    if (last) Clipboard.setString(last.content);
+    if (last) void Clipboard.setStringAsync(last.content);
   }
 
   const windowOptions: Array<{ label: string; value: number }> = [
@@ -392,7 +392,10 @@ function InsightsScreenContent() {
           void loadThread(id);
           setShowThreadSheet(false);
         }}
-        onDeleteThread={(id) => { void deleteThread(id); }}
+        onDeleteThread={(id) => {
+          setShowThreadSheet(false); // close immediately to prevent double-tap race
+          void deleteThread(id);
+        }}
         onNewThread={() => {
           void createNewThread();
           setShowThreadSheet(false);

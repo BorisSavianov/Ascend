@@ -78,8 +78,7 @@ export default function ThreadSheet({
               </View>
               <Pressable
                 onPress={() => onDeleteThread(item.id)}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                style={{ marginLeft: spacing.md }}
+                style={{ marginLeft: spacing.md, padding: spacing.sm }}
               >
                 <Ionicons name="trash-outline" size={18} color={colors.semantic.danger} />
               </Pressable>
