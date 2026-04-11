@@ -52,6 +52,7 @@ export function useConversation(windowDays: number) {
   }
 
   async function syncThreadFromSupabase(threadId: string) {
+    try {
     const [messagesRes, threadRes] = await Promise.all([
       supabase
         .from('ai_messages')
@@ -82,6 +83,7 @@ export function useConversation(windowDays: number) {
     await AsyncStorage.setItem(threadKey(threadId), JSON.stringify(synced));
     setThread(synced);
     await updateThreadIndex({ id: synced.id, title: synced.title, lastActive: synced.lastActive });
+    } catch { /* background sync failure — local state already displayed */ }
   }
 
   async function updateThreadIndex(entry: ThreadIndexEntry) {
@@ -120,6 +122,9 @@ export function useConversation(windowDays: number) {
     const stored = await AsyncStorage.getItem(threadKey(threadId));
     if (stored) {
       setThread(JSON.parse(stored));
+    } else {
+      // No cached data yet — clear UI while Supabase sync runs
+      setThread({ id: threadId, title: null, lastActive: new Date().toISOString(), messages: [] });
     }
     void syncThreadFromSupabase(threadId);
   }, []);
@@ -131,8 +136,8 @@ export function useConversation(windowDays: number) {
     const updated = index.filter((e) => e.id !== threadId);
     await AsyncStorage.setItem(THREAD_INDEX_KEY, JSON.stringify(updated));
     setThreadIndex(updated);
-    // Delete from Supabase (cascade deletes messages)
-    await supabase.from('ai_threads').delete().eq('id', threadId);
+    // Delete from Supabase (cascade deletes messages); best-effort
+    await supabase.from('ai_threads').delete().eq('id', threadId).then(() => {}, () => {});
     // If we deleted the active thread, create a new one
     const activeId = await AsyncStorage.getItem(ACTIVE_THREAD_KEY);
     if (activeId === threadId) {
@@ -233,7 +238,10 @@ export function useConversation(windowDays: number) {
           if (!prev) return prev;
           const msgs = [...prev.messages];
           if (msgs[msgs.length - 1]?.role === 'assistant') msgs.pop();
-          return { ...prev, messages: msgs };
+          const next = { ...prev, messages: msgs };
+          // Sync corrected state back to AsyncStorage to remove the dangling assistant placeholder
+          void AsyncStorage.setItem(threadKey(prev.id), JSON.stringify(next));
+          return next;
         });
         isStreamingRef.current = false;
         setIsStreaming(false);
