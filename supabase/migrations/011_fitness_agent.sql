@@ -37,6 +37,12 @@ CREATE POLICY ai_messages_owner ON ai_messages
       SELECT 1 FROM ai_threads t
       WHERE t.id = thread_id AND t.user_id = auth.uid()
     )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM ai_threads t
+      WHERE t.id = thread_id AND t.user_id = auth.uid()
+    )
   );
 
 -- ── Proactive insights from cron ─────────────────────────────────────────────
@@ -54,6 +60,9 @@ ALTER TABLE ai_proactive_insights ENABLE ROW LEVEL SECURITY;
 CREATE POLICY ai_proactive_owner ON ai_proactive_insights
   USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
+
+CREATE INDEX ai_proactive_insights_unread
+  ON ai_proactive_insights (user_id, read, created_at DESC);
 
 -- ── Push notification tokens ──────────────────────────────────────────────────
 CREATE TABLE user_push_tokens (
@@ -106,7 +115,7 @@ AS $$
     ),
 
     'meals', (
-      SELECT json_agg(meal_obj ORDER BY (meal_obj->>'logged_at') DESC)
+      SELECT json_agg(meal_obj)
       FROM (
         SELECT json_build_object(
           'date',          DATE(m.logged_at),
@@ -139,6 +148,7 @@ AS $$
         FROM meals m
         WHERE m.user_id = p_user_id
           AND m.logged_at >= now() - (p_window_days || ' days')::INTERVAL
+        ORDER BY m.logged_at DESC
       ) sub
     ),
 
@@ -186,7 +196,7 @@ AS $$
       FROM (
         SELECT * FROM body_metrics
         WHERE user_id = p_user_id
-          AND recorded_at >= now() - '30 days'::INTERVAL
+          AND recorded_at >= now() - (p_window_days || ' days')::INTERVAL
         ORDER BY recorded_at DESC
         LIMIT 10
       ) bm_limited
