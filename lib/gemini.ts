@@ -3,6 +3,7 @@ import { supabase } from "./supabase";
 
 const FUNCTIONS_BASE = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1`;
 const EDGE_FUNCTION_URL = `${FUNCTIONS_BASE}/gemini`;
+const FITNESS_AGENT_URL = `${FUNCTIONS_BASE}/fitness-agent`;
 
 export async function streamGeminiResponse(
   question: string,
@@ -90,8 +91,6 @@ export async function triggerExport(
   return response.blob();
 }
 
-const FITNESS_AGENT_URL = `${FUNCTIONS_BASE}/fitness-agent`;
-
 export async function sendMessage(params: {
   threadId: string;
   message: string;
@@ -136,7 +135,8 @@ export async function sendMessage(params: {
     return;
   }
 
-  const path = (response.headers.get("X-Path") ?? "simple") as "simple" | "complex";
+  const rawPath = response.headers.get("X-Path");
+  const path: "simple" | "complex" = rawPath === "complex" ? "complex" : "simple";
 
   if (!response.body) {
     try {
