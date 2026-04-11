@@ -586,7 +586,7 @@ export type Database = {
         }
         Insert: {
           id?: string
-          user_id?: string
+          user_id: string
           title?: string | null
           summary?: string | null
           created_at?: string
@@ -652,7 +652,7 @@ export type Database = {
         }
         Insert: {
           id?: string
-          user_id?: string
+          user_id: string
           content: string
           category?: string | null
           read?: boolean
@@ -712,6 +712,16 @@ export type Database = {
     Functions: {
       assemble_ai_context: {
         Args: { p_user_id: string; p_window_days?: number }
+        Returns: Json
+      }
+      assemble_full_context: {
+        Args: {
+          p_user_id: string
+          p_window_days?: number
+          p_calorie_target?: number | null
+          p_macro_targets?: Json | null
+          p_fasting_target?: number | null
+        }
         Returns: Json
       }
       increment_food_use_count: {
