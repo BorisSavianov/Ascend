@@ -23,6 +23,8 @@ export default function ProactiveInsightBanner({ insight, onDismiss, onAskAboutT
   }
 
   function handleAsk() {
+    // Mark as read in Supabase (same as dismiss — prevents banner reappearing on next focus)
+    void supabase.from('ai_proactive_insights').update({ read: true }).eq('id', insight.id);
     onDismiss();
     const preview = insight.content.slice(0, 120);
     onAskAboutThis(`Tell me more about this observation: ${preview}`);

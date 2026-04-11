@@ -167,19 +167,27 @@ export async function executeTool(
         };
       }
       if (metric === "weight") {
+        // body_metrics.recorded_at is TIMESTAMPTZ; a bare YYYY-MM-DD upper bound
+        // compares as midnight, excluding entries logged later that day.
+        // Use start-of-next-day as the exclusive upper bound instead.
+        const nextDayISO = (dateStr: string) => {
+          const d = new Date(dateStr + "T00:00:00Z");
+          d.setUTCDate(d.getUTCDate() + 1);
+          return d.toISOString();
+        };
         const [resA, resB] = await Promise.all([
           supabase
             .from("body_metrics")
             .select("weight_kg")
             .eq("user_id", userId)
             .gte("recorded_at", String(args.period_a_from))
-            .lte("recorded_at", String(args.period_a_to)),
+            .lt("recorded_at", nextDayISO(String(args.period_a_to))),
           supabase
             .from("body_metrics")
             .select("weight_kg")
             .eq("user_id", userId)
             .gte("recorded_at", String(args.period_b_from))
-            .lte("recorded_at", String(args.period_b_to)),
+            .lt("recorded_at", nextDayISO(String(args.period_b_to))),
         ]);
         const avg = (rows: { weight_kg: number | null }[]) => {
           const valid = rows.filter((r) => r.weight_kg != null);

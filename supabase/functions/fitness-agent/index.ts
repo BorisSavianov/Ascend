@@ -98,19 +98,25 @@ Deno.serve(async (req: Request) => {
     .maybeSingle();
 
   if (!existingThread) {
-    await supabase.from("ai_threads").insert({
+    const { error: insertError } = await supabase.from("ai_threads").insert({
       id: threadId,
       user_id: user.id,
       last_active: new Date().toISOString(),
     });
+    if (insertError) {
+      // UUID already exists but belongs to a different user — reject to prevent
+      // cross-user data access (service role bypasses RLS, so we enforce here).
+      return new Response("Forbidden", { status: 403 });
+    }
   }
 
-  // Load recent messages and thread summary
+  // Load recent messages — capped at 50 to bound memory usage per request
   const { data: allMessages } = await supabase
     .from("ai_messages")
     .select("id, role, content, created_at")
     .eq("thread_id", threadId)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .limit(50);
 
   const messageCount = allMessages?.length ?? 0;
 
@@ -130,13 +136,16 @@ Deno.serve(async (req: Request) => {
       }
     }
     const last2 = (allMessages ?? []).slice(-2);
-    const summaryText = summary
-      ? `[Prior conversation summary: ${summary}]\n\n`
-      : "";
-    // Inject summary as first history item, then last 2 turns
-    if (summaryText) {
-      history.push({ role: "user", parts: [{ text: summaryText + (last2[0]?.content ?? "") }] });
-      if (last2[1]) {
+    if (summary) {
+      // Inject summary as a valid user→model exchange, then append last 2 turns.
+      // Only add last2 when they form a clean user→model pair to avoid role alternation
+      // violations in the Gemini chat API.
+      history = [
+        { role: "user", parts: [{ text: "[Prior conversation context]" }] },
+        { role: "model", parts: [{ text: summary }] },
+      ];
+      if (last2.length === 2 && last2[0].role === "user" && last2[1].role === "assistant") {
+        history.push({ role: "user", parts: [{ text: last2[0].content }] });
         history.push({ role: "model", parts: [{ text: last2[1].content }] });
       }
     } else {

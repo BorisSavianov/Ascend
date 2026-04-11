@@ -46,12 +46,17 @@ export async function toolLoopPath(params: {
           params.supabase,
           params.userId,
         );
-        toolResults.push({ name: fnCall.functionCall.name, result });
-        return { functionResponse: { name: fnCall.functionCall.name, response: { result } } };
+        return { name: fnCall.functionCall.name, result };
       }),
     );
+    // Push in fnCalls order (not completion order) so toolSummary is deterministic
+    for (const r of responses) {
+      toolResults.push({ name: r.name, result: r.result });
+    }
 
-    response = await chat.sendMessage(responses);
+    response = await chat.sendMessage(
+      responses.map((r) => ({ functionResponse: { name: r.name, response: { result: r.result } } })),
+    );
     iterations++;
   }
 
