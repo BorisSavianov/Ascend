@@ -20,6 +20,7 @@ import Surface from '../../components/ui/Surface';
 import Button from '../../components/ui/Button';
 import BottomActionBar from '../../components/ui/BottomActionBar';
 import { colors, spacing, typography } from '../../lib/theme';
+import Markdown from 'react-native-markdown-display';
 
 function StreamingDots() {
   const values = useRef(
@@ -92,16 +93,17 @@ function ChatBubble({ message }: { message: ChatMessage }) {
         {message.isStreaming && message.content === '' ? (
           <StreamingDots />
         ) : (
-          <Text
-            style={[
-              typography.bodySm,
-              {
-                color: colors.text.primary,
-              },
-            ]}
+          <Markdown
+            style={{
+              body: { ...typography.bodySm, color: colors.text.primary, margin: 0 },
+              paragraph: { marginTop: 0, marginBottom: 4 },
+              strong: { fontWeight: '700' },
+              bullet_list: { marginVertical: 4 },
+              ordered_list: { marginVertical: 4 },
+            }}
           >
             {message.content}
-          </Text>
+          </Markdown>
         )}
       </View>
     </View>
