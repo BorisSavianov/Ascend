@@ -575,6 +575,119 @@ export type Database = {
           },
         ]
       }
+      ai_threads: {
+        Row: {
+          id: string
+          user_id: string
+          title: string | null
+          summary: string | null
+          created_at: string
+          last_active: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          title?: string | null
+          summary?: string | null
+          created_at?: string
+          last_active?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string | null
+          summary?: string | null
+          created_at?: string
+          last_active?: string
+        }
+        Relationships: []
+      }
+      ai_messages: {
+        Row: {
+          id: string
+          thread_id: string
+          role: string
+          content: string
+          path: string | null
+          tokens_used: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          thread_id: string
+          role: string
+          content: string
+          path?: string | null
+          tokens_used?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          thread_id?: string
+          role?: string
+          content?: string
+          path?: string | null
+          tokens_used?: number | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "ai_threads"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      ai_proactive_insights: {
+        Row: {
+          id: string
+          user_id: string
+          content: string
+          category: string | null
+          read: boolean
+          notified: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          content: string
+          category?: string | null
+          read?: boolean
+          notified?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          content?: string
+          category?: string | null
+          read?: boolean
+          notified?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
+      user_push_tokens: {
+        Row: {
+          user_id: string
+          expo_token: string
+          updated_at: string
+        }
+        Insert: {
+          user_id?: string
+          expo_token: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          expo_token?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       daily_summaries: {
@@ -747,3 +860,7 @@ export type DailySummaryRow = Database['public']['Views']['daily_summaries']['Ro
 export type ExerciseRow = Database['public']['Tables']['exercises']['Row'];
 export type FastingLog = Database['public']['Tables']['fasting_logs']['Row'];
 export type BodyMetricRow = Database['public']['Tables']['body_metrics']['Row'];
+export type AiThreadRow = Database['public']['Tables']['ai_threads']['Row'];
+export type AiMessageRow = Database['public']['Tables']['ai_messages']['Row'];
+export type AiProactiveInsightRow = Database['public']['Tables']['ai_proactive_insights']['Row'];
+export type UserPushTokenRow = Database['public']['Tables']['user_push_tokens']['Row'];
