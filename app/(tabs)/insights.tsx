@@ -97,9 +97,16 @@ function ChatBubble({ message }: { message: ChatMessage }) {
             style={{
               body: { ...typography.bodySm, color: colors.text.primary, margin: 0 },
               paragraph: { marginTop: 0, marginBottom: 4 },
-              strong: { fontWeight: '700' },
+              strong: { fontWeight: '700', color: colors.text.primary },
+              em: { color: colors.text.primary },
               bullet_list: { marginVertical: 4 },
               ordered_list: { marginVertical: 4 },
+              bullet_list_item: { color: colors.text.primary },
+              ordered_list_item: { color: colors.text.primary },
+              code_inline: { color: colors.text.primary },
+              heading1: { color: colors.text.primary, marginVertical: 4 },
+              heading2: { color: colors.text.primary, marginVertical: 4 },
+              heading3: { color: colors.text.primary, marginVertical: 4 },
             }}
           >
             {message.content}
