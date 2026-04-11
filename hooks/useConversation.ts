@@ -104,23 +104,22 @@ export function useConversation(windowDays: number) {
     const now = new Date().toISOString();
     const newThread: LocalThread = { id, title: null, lastActive: now, messages: [] };
 
-    // Use functional update so we read latest state — avoids AsyncStorage read race
-    let evictedId: string | null = null;
-    let finalIndex: ThreadIndexEntry[] = [];
+    // Use functional update so we read latest state — avoids AsyncStorage read race.
+    // All AsyncStorage side-effects (removeItem + setItem) are initiated inside the
+    // closure so they use the correct evicted ID, not a captured outer variable.
     setThreadIndex((prev) => {
-      evictedId = prev.length >= MAX_LOCAL_THREADS ? prev[prev.length - 1].id : null;
+      const evictedId = prev.length >= MAX_LOCAL_THREADS ? prev[prev.length - 1].id : null;
+      if (evictedId) void AsyncStorage.removeItem(threadKey(evictedId));
       const trimmed = evictedId ? prev.slice(0, -1) : prev;
-      finalIndex = [{ id, title: null, lastActive: now }, ...trimmed];
+      const finalIndex = [{ id, title: null, lastActive: now }, ...trimmed];
       void AsyncStorage.setItem(THREAD_INDEX_KEY, JSON.stringify(finalIndex));
       return finalIndex;
     });
 
-    const ops: Promise<void>[] = [
+    await Promise.all([
       AsyncStorage.setItem(threadKey(id), JSON.stringify(newThread)),
       AsyncStorage.setItem(ACTIVE_THREAD_KEY, id),
-    ];
-    if (evictedId) ops.push(AsyncStorage.removeItem(threadKey(evictedId)));
-    await Promise.all(ops);
+    ]);
     setThread(newThread);
   }, []);
 

@@ -24,7 +24,7 @@ export const QUICK_PROMPTS = {
 export type PromptDomain = keyof typeof QUICK_PROMPTS;
 
 /**
- * Returns the 3 prompts for the given domain.
+ * Returns the prompts for the given domain.
  * Pass the domain from component state that rotates on screen focus.
  */
 export function getRotatedPrompts(domain: PromptDomain): readonly string[] {

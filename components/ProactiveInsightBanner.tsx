@@ -14,12 +14,12 @@ type Props = {
 };
 
 export default function ProactiveInsightBanner({ insight, onDismiss, onAskAboutThis }: Props) {
-  async function handleDismiss() {
+  function handleDismiss() {
+    // Dismiss immediately (optimistic). Fire-and-forget the DB write so a network
+    // failure doesn't leave the banner in a broken state. The cancelled flag in
+    // useProactiveInsight suppresses re-showing the insight in the same focus session.
+    void supabase.from('ai_proactive_insights').update({ read: true }).eq('id', insight.id);
     onDismiss();
-    await supabase
-      .from('ai_proactive_insights')
-      .update({ read: true })
-      .eq('id', insight.id);
   }
 
   function handleAsk() {
