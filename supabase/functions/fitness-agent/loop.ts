@@ -4,7 +4,7 @@ import { type SupabaseClient } from "npm:@supabase/supabase-js";
 import { TOOL_DECLARATIONS, executeTool } from "./tools.ts";
 
 const MODEL_NAME = "gemini-2.0-flash";
-const MAX_TOOL_ITERATIONS = 2; // classifier + 2 tool rounds + 1 synthesis = 4 max calls
+const MAX_TOOL_ITERATIONS = 2; // max tool-call rounds in the while loop before falling back to synthesis
 
 type HistoryItem = { role: "user" | "model"; parts: { text: string }[] };
 
@@ -13,7 +13,6 @@ export async function toolLoopPath(params: {
   supabase: SupabaseClient;
   userId: string;
   question: string;
-  windowDays: number;
   history: HistoryItem[];
   systemPrompt: string;
 }): Promise<ReadableStream<Uint8Array>> {
@@ -29,28 +28,30 @@ export async function toolLoopPath(params: {
   const toolResults: { name: string; result: unknown }[] = [];
   let iterations = 0;
 
-  // Tool-calling loop
+  type FnCallPart = { functionCall: { name: string; args: Record<string, unknown> } };
+
+  // Tool-calling loop — handle all parallel function calls per iteration
   while (iterations < MAX_TOOL_ITERATIONS) {
     const parts = response.response.candidates?.[0]?.content?.parts ?? [];
-    const fnCall = parts.find((p: { functionCall?: { name: string; args: Record<string, unknown> } }) => p.functionCall);
-    if (!fnCall?.functionCall) break;
-
-    const result = await executeTool(
-      fnCall.functionCall.name,
-      fnCall.functionCall.args ?? {},
-      params.supabase,
-      params.userId,
+    const fnCalls = parts.filter(
+      (p: { functionCall?: unknown }): p is FnCallPart => !!p.functionCall,
     );
-    toolResults.push({ name: fnCall.functionCall.name, result });
+    if (fnCalls.length === 0) break;
 
-    response = await chat.sendMessage([
-      {
-        functionResponse: {
-          name: fnCall.functionCall.name,
-          response: { result },
-        },
-      },
-    ]);
+    const responses = await Promise.all(
+      fnCalls.map(async (fnCall) => {
+        const result = await executeTool(
+          fnCall.functionCall.name,
+          fnCall.functionCall.args ?? {},
+          params.supabase,
+          params.userId,
+        );
+        toolResults.push({ name: fnCall.functionCall.name, result });
+        return { functionResponse: { name: fnCall.functionCall.name, response: { result } } };
+      }),
+    );
+
+    response = await chat.sendMessage(responses);
     iterations++;
   }
 

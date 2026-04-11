@@ -8,6 +8,24 @@ import { toolLoopPath } from "./loop.ts";
 
 const genAI = new GoogleGenerativeAI(Deno.env.get("GEMINI_API_KEY")!);
 
+async function generateThreadSummary(
+  genAI: GoogleGenerativeAI,
+  messages: Array<{ role: string; content: string }>,
+): Promise<string> {
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const transcript = messages
+    .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content.slice(0, 300)}`)
+    .join("\n");
+  try {
+    const result = await model.generateContent(
+      `Summarise this fitness assistant conversation in 3-4 sentences, focusing on the key questions asked and insights given. Do not include greetings or sign-offs.\n\n${transcript}`,
+    );
+    return result.response.text().trim();
+  } catch {
+    return "";
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
@@ -74,7 +92,7 @@ Deno.serve(async (req: Request) => {
   // Ensure thread exists in DB (upsert so client-generated UUID is accepted)
   const { data: existingThread } = await supabase
     .from("ai_threads")
-    .select("id, title")
+    .select("id, title, summary")
     .eq("id", threadId)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -87,22 +105,54 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // Load last 6 messages as history
-  const { data: recentMessages } = await supabase
+  // Load recent messages and thread summary
+  const { data: allMessages } = await supabase
     .from("ai_messages")
-    .select("role, content")
+    .select("id, role, content, created_at")
     .eq("thread_id", threadId)
-    .order("created_at", { ascending: false })
-    .limit(6);
+    .order("created_at", { ascending: true });
 
-  const history = (recentMessages ?? [])
-    .reverse()
-    .map((m) => ({
+  const messageCount = allMessages?.length ?? 0;
+
+  // If thread is long, use summary + last 2 messages; otherwise use last 6 messages
+  let history: { role: "user" | "model"; parts: { text: string }[] }[] = [];
+
+  if (messageCount > 10) {
+    // Check if summary exists; if not, generate and store it
+    let summary = existingThread?.summary ?? "";
+    if (!summary && allMessages) {
+      summary = await generateThreadSummary(genAI, allMessages.slice(0, -2));
+      if (summary) {
+        await supabase
+          .from("ai_threads")
+          .update({ summary })
+          .eq("id", threadId);
+      }
+    }
+    const last2 = (allMessages ?? []).slice(-2);
+    const summaryText = summary
+      ? `[Prior conversation summary: ${summary}]\n\n`
+      : "";
+    // Inject summary as first history item, then last 2 turns
+    if (summaryText) {
+      history.push({ role: "user", parts: [{ text: summaryText + (last2[0]?.content ?? "") }] });
+      if (last2[1]) {
+        history.push({ role: "model", parts: [{ text: last2[1].content }] });
+      }
+    } else {
+      history = last2.map((m) => ({
+        role: m.role === "user" ? "user" : "model" as "user" | "model",
+        parts: [{ text: m.content }],
+      }));
+    }
+  } else {
+    history = (allMessages ?? []).slice(-6).map((m) => ({
       role: m.role === "user" ? "user" : "model" as "user" | "model",
       parts: [{ text: m.content }],
     }));
+  }
 
-  const isFirstMessage = !existingThread && (recentMessages ?? []).length === 0;
+  const isFirstMessage = messageCount === 0;
 
   // Classify
   const path = await classify(genAI, message);
@@ -119,7 +169,6 @@ Deno.serve(async (req: Request) => {
         supabase,
         userId: user.id,
         question: message,
-        windowDays,
         history,
         systemPrompt,
       });
@@ -161,7 +210,7 @@ Deno.serve(async (req: Request) => {
 
       // Persist user + assistant messages
       await supabase.from("ai_messages").insert([
-        { thread_id: threadId, role: "user", content: message, user_id: undefined },
+        { thread_id: threadId, role: "user", content: message },
         { thread_id: threadId, role: "assistant", content: fullText, path },
       ]);
 

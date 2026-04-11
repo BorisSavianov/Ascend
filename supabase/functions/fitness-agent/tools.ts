@@ -48,13 +48,13 @@ export const TOOL_DECLARATIONS = [
   },
   {
     name: "compute_trends",
-    description: "Compare average calories, protein, or weight between two date ranges",
+    description: "Compare average calories, protein, weight, or total workout volume (kg lifted) between two date ranges",
     parameters: {
       type: "object",
       properties: {
         metric: {
           type: "string",
-          enum: ["calories", "protein", "weight"],
+          enum: ["calories", "protein", "weight", "volume"],
           description: "The metric to compare",
         },
         period_a_from: { type: "string", description: "Period A start date YYYY-MM-DD" },
@@ -191,6 +191,37 @@ export async function executeTool(
           metric,
           period_a: { avg: avg(resA.data ?? []) },
           period_b: { avg: avg(resB.data ?? []) },
+        };
+      }
+      if (metric === "volume") {
+        // Total kg lifted = sum(weight_kg * reps) across completed sets per period
+        const computeVolume = async (fromDate: string, toDate: string) => {
+          const { data } = await supabase
+            .from("workout_sessions")
+            .select("logged_exercises(logged_sets(weight_kg, reps, is_completed))")
+            .eq("user_id", userId)
+            .gte("date", fromDate)
+            .lte("date", toDate);
+          let total = 0;
+          let sessions = 0;
+          for (const s of (data ?? []) as { logged_exercises: { logged_sets: { weight_kg: number | null; reps: number | null; is_completed: boolean }[] }[] }[]) {
+            sessions++;
+            for (const ex of s.logged_exercises ?? []) {
+              for (const set of ex.logged_sets ?? []) {
+                if (set.is_completed) total += (set.weight_kg ?? 0) * (set.reps ?? 0);
+              }
+            }
+          }
+          return { total_kg: Math.round(total), sessions };
+        };
+        const [a, b] = await Promise.all([
+          computeVolume(String(args.period_a_from), String(args.period_a_to)),
+          computeVolume(String(args.period_b_from), String(args.period_b_to)),
+        ]);
+        return {
+          metric: "volume",
+          period_a: { from: args.period_a_from, to: args.period_a_to, ...a },
+          period_b: { from: args.period_b_from, to: args.period_b_to, ...b },
         };
       }
       return { error: `Unsupported metric: ${metric}` };

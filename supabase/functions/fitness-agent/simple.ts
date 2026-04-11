@@ -31,7 +31,9 @@ export async function simplePath(params: {
     p_fasting_target: params.userTargets.fastingTargetHours,
   });
 
-  // Build compressed context: drop meals detail if not food question, drop fasting if not fasting question
+  // Trim context client-side: drop meals detail if not food question, drop fasting if not fasting question.
+  // Note: assemble_full_context always fetches all data; trimming happens post-SQL.
+  // The benefit is reduced context sent to the model, not reduced SQL work.
   const trimmed = { ...context };
   if (!includeDetailedMeals) delete trimmed.meals;
   if (!includeFasting) delete trimmed.fasting_logs;
