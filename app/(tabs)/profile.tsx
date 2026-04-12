@@ -39,7 +39,7 @@ import Surface from '../../components/ui/Surface';
 import TextField from '../../components/ui/TextField';
 import Button from '../../components/ui/Button';
 import ConfirmationSheet from '../../components/ui/ConfirmationSheet';
-import { colors, spacing, typography } from '../../lib/theme';
+import { colors, radius, spacing, typography } from '../../lib/theme';
 
 function SectionHeading({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
@@ -639,7 +639,7 @@ function PressableExport({
         minHeight: 52,
         borderWidth: 1,
         borderColor: loading ? colors.accent.primary : colors.border.default,
-        borderRadius: 16,
+        borderRadius: radius.md,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: colors.bg.surfaceRaised,

@@ -37,7 +37,7 @@ export default function SegmentedControl<T extends string | number>({
     const segmentWidth = width / options.length;
     x.value = reducedMotion
       ? selectedIndex * segmentWidth
-      : withSpring(selectedIndex * segmentWidth, motion.spring);
+      : withSpring(selectedIndex * segmentWidth, motion.spring.default);
   }, [options.length, reducedMotion, selectedIndex, width, x]);
 
   const animatedStyle = useAnimatedStyle(() => ({

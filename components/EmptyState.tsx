@@ -1,7 +1,7 @@
 import React from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Text, View } from 'react-native';
-import { colors, spacing, typography } from '../lib/theme';
+import { colors, radius, spacing, typography } from '../lib/theme';
 import Surface from './ui/Surface';
 
 type Props = {
@@ -22,7 +22,7 @@ export default function EmptyState({ message, title = 'Nothing here yet' }: Prop
         style={{
           width: 52,
           height: 52,
-          borderRadius: 26,
+          borderRadius: radius.pill,
           backgroundColor: colors.accent.primaryMuted,
           borderWidth: 1,
           borderColor: colors.accent.primary,

@@ -32,7 +32,7 @@ import Surface from '../../components/ui/Surface';
 import TextField from '../../components/ui/TextField';
 import Button from '../../components/ui/Button';
 import UndoToast from '../../components/ui/UndoToast';
-import { colors, spacing, typography } from '../../lib/theme';
+import { colors, radius, spacing, typography } from '../../lib/theme';
 
 type Preset = (typeof EXERCISE_PRESETS)[number];
 
@@ -452,7 +452,7 @@ function SummaryCard({
       style={{
         flex: 1,
         minHeight: 84,
-        borderRadius: 16,
+        borderRadius: radius.md,
         borderWidth: 1,
         borderColor: colors.border.subtle,
         backgroundColor: colors.bg.surfaceRaised,

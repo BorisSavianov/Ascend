@@ -102,7 +102,7 @@ export default function WorkoutExerciseCard({
           style={{
             width: 52,
             height: 52,
-            borderRadius: 12,
+            borderRadius: radius.sm,
             backgroundColor: colors.accent.primaryMuted,
             alignItems: 'center',
             justifyContent: 'center',

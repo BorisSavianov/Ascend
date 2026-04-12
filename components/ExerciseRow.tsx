@@ -3,7 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import type { ExerciseRow } from '../types/database';
-import { colors, spacing, typography } from '../lib/theme';
+import { colors, radius, spacing, typography } from '../lib/theme';
 
 type Props = {
   exercise: ExerciseRow;
@@ -34,7 +34,7 @@ export default function ExerciseRowComponent({ exercise, onRequestDelete }: Prop
         style={{
           width: 40,
           height: 40,
-          borderRadius: 20,
+          borderRadius: radius.pill,
           backgroundColor: colors.accent.primaryMuted,
           alignItems: 'center',
           justifyContent: 'center',

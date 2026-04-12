@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography } from '../lib/theme';
+import { colors, radius, spacing, typography } from '../lib/theme';
 import type { SetInputState } from '../store/useWorkoutStore';
 
 type Props = {
@@ -97,7 +97,7 @@ const WorkoutSetRow = memo(function WorkoutSetRow({
           flexDirection: 'row',
           alignItems: 'center',
           height: 36,
-          borderRadius: 8,
+          borderRadius: radius.xs,
           borderWidth: 1,
           borderColor: isCompleted ? colors.border.subtle : colors.border.default,
           backgroundColor: colors.bg.input,
@@ -138,7 +138,7 @@ const WorkoutSetRow = memo(function WorkoutSetRow({
         style={{
           width: 52,
           height: 36,
-          borderRadius: 8,
+          borderRadius: radius.xs,
           borderWidth: 1,
           borderColor: isCompleted ? colors.border.subtle : colors.border.default,
           backgroundColor: colors.bg.input,

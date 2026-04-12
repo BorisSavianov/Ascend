@@ -30,7 +30,7 @@ import AppHeader from '../../components/ui/AppHeader';
 import Surface from '../../components/ui/Surface';
 import Button from '../../components/ui/Button';
 import UndoToast from '../../components/ui/UndoToast';
-import { colors, spacing, typography } from '../../lib/theme';
+import { colors, radius, spacing, typography } from '../../lib/theme';
 
 export default function TodayScreen() {
   return (
@@ -243,7 +243,7 @@ function MetricCard({
       style={{
         flex: 1,
         minHeight: 88,
-        borderRadius: 16,
+        borderRadius: radius.md,
         borderWidth: 1,
         borderColor: tone === 'accent' ? colors.accent.primary : colors.border.subtle,
         backgroundColor: tone === 'accent' ? colors.accent.primaryMuted : colors.bg.surface,
@@ -337,7 +337,7 @@ function MealCard({ meal, onDelete, isPendingDelete = false }: MealCardProps) {
                 style={{
                   paddingHorizontal: spacing.md,
                   paddingVertical: spacing.sm,
-                  borderRadius: 999,
+                  borderRadius: radius.pill,
                   backgroundColor: colors.bg.surfaceRaised,
                   borderWidth: 1,
                   borderColor: colors.border.subtle,
@@ -351,7 +351,7 @@ function MealCard({ meal, onDelete, isPendingDelete = false }: MealCardProps) {
                 style={{
                   paddingHorizontal: spacing.md,
                   paddingVertical: spacing.sm,
-                  borderRadius: 999,
+                  borderRadius: radius.pill,
                   backgroundColor: colors.bg.surfaceRaised,
                   borderWidth: 1,
                   borderColor: colors.border.subtle,
@@ -439,7 +439,7 @@ function DateNav({
         style={{
           width: 36,
           height: 36,
-          borderRadius: 18,
+          borderRadius: radius.pill,
           backgroundColor: colors.bg.surfaceRaised,
           borderWidth: 1,
           borderColor: colors.border.default,
@@ -460,7 +460,7 @@ function DateNav({
         style={{
           width: 36,
           height: 36,
-          borderRadius: 18,
+          borderRadius: radius.pill,
           backgroundColor: atToday ? colors.bg.surface : colors.bg.surfaceRaised,
           borderWidth: 1,
           borderColor: atToday ? colors.border.subtle : colors.border.default,

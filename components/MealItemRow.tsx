@@ -5,7 +5,7 @@ import * as Haptics from 'expo-haptics';
 import { Swipeable } from 'react-native-gesture-handler';
 import { calculateNutrition, formatCalories } from '../lib/calculations';
 import type { MealItemDraft } from '../store/useAppStore';
-import { colors, spacing, typography } from '../lib/theme';
+import { colors, radius, spacing, typography } from '../lib/theme';
 
 type Props = {
   item: MealItemDraft;
@@ -116,7 +116,7 @@ export default function MealItemRow({ item, onAmountChange, onRemove }: Props) {
         <View
           style={{
             minWidth: 98,
-            borderRadius: 14,
+            borderRadius: radius.sm,
             borderWidth: 1,
             borderColor: colors.border.default,
             backgroundColor: colors.bg.input,

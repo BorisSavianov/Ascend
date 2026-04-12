@@ -3,7 +3,7 @@ import { Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from './ui/Surface';
 import Button from './ui/Button';
-import { colors, spacing, typography } from '../lib/theme';
+import { colors, radius, spacing, typography } from '../lib/theme';
 
 type Props = {
   dayName: string;
@@ -18,7 +18,7 @@ export default function RestDayCard({ dayName, onLogCardio }: Props) {
           style={{
             width: 52,
             height: 52,
-            borderRadius: 26,
+            borderRadius: radius.pill,
             backgroundColor: colors.bg.surfaceRaised,
             alignItems: 'center',
             justifyContent: 'center',

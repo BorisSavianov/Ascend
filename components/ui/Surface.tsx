@@ -31,7 +31,7 @@ export default function Surface({
           borderColor: elevated ? colors.border.default : colors.border.subtle,
           padding: spacing[padding],
         },
-        elevated ? shadows.card : null,
+        elevated ? shadows.md : null,
         style,
       ]}
     >
