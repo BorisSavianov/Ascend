@@ -10,13 +10,16 @@ import { useIsFocused } from '@react-navigation/native';
 import { router, usePathname } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  Easing,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import { colors, motion } from '../../lib/theme';
+import { useWindowDimensions } from 'react-native';
 
 type Props = {
   children: React.ReactNode;
@@ -37,23 +40,33 @@ export default function Screen({
 }: Props) {
   const isFocused = useIsFocused();
   const pathname = usePathname();
+  const { width: screenWidth } = useWindowDimensions();
   const opacity = useSharedValue(isFocused ? 1 : 0);
-  const translateY = useSharedValue(isFocused ? 0 : 8);
+  const translateY = useSharedValue(isFocused ? 0 : 16);
+  const scale = useSharedValue(isFocused ? 1 : 0.98);
   const swipeTranslateX = useSharedValue(0);
 
   const currentRouteIndex = TAB_ROUTES.findIndex((route) => route === pathname);
   const canSwipeTabs = currentRouteIndex !== -1;
 
+  const easing = Easing.out(Easing.cubic);
+
   React.useEffect(() => {
-    opacity.value = withTiming(isFocused ? 1 : 0.96, { duration: motion.medium });
-    translateY.value = withTiming(isFocused ? 0 : 8, { duration: motion.medium });
-  }, [isFocused, opacity, translateY]);
+    if (isFocused) {
+      opacity.value = withTiming(1, { duration: motion.standard, easing });
+      translateY.value = withTiming(0, { duration: motion.standard, easing: Easing.out(Easing.poly(4)) });
+      scale.value = withTiming(1, { duration: motion.standard, easing: Easing.out(Easing.poly(4)) });
+    } else {
+      opacity.value = withTiming(0, { duration: motion.fast, easing });
+    }
+  }, [isFocused, opacity, translateY, scale]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
     transform: [
       { translateX: swipeTranslateX.value },
       { translateY: translateY.value },
+      { scale: scale.value },
     ],
   }));
 
@@ -75,13 +88,15 @@ export default function Screen({
         swipeTranslateX.value = 0;
         return;
       }
-      swipeTranslateX.value = event.translationX * 0.35;
+      // 40% damping (up from 35%) + subtle opacity reduction during drag
+      swipeTranslateX.value = event.translationX * 0.40;
+      opacity.value = 1 - Math.abs(event.translationX) / screenWidth * 0.15;
     })
     .onEnd((event) => {
-      const passedThreshold = Math.abs(event.translationX) > 96 || Math.abs(event.velocityX) > 900;
+      const passedThreshold = Math.abs(event.translationX) > 96 || Math.abs(event.velocityX) > 700;
 
       if (event.translationX > 0 && currentRouteIndex > 0 && passedThreshold) {
-        swipeTranslateX.value = withTiming(64, { duration: motion.fast }, () => {
+        swipeTranslateX.value = withSpring(64, motion.spring.snappy, () => {
           swipeTranslateX.value = 0;
           runOnJS(navigateToSibling)(-1);
         });
@@ -89,14 +104,15 @@ export default function Screen({
       }
 
       if (event.translationX < 0 && currentRouteIndex < TAB_ROUTES.length - 1 && passedThreshold) {
-        swipeTranslateX.value = withTiming(-64, { duration: motion.fast }, () => {
+        swipeTranslateX.value = withSpring(-64, motion.spring.snappy, () => {
           swipeTranslateX.value = 0;
           runOnJS(navigateToSibling)(1);
         });
         return;
       }
 
-      swipeTranslateX.value = withTiming(0, { duration: motion.fast });
+      swipeTranslateX.value = withSpring(0, motion.spring.snappy);
+      opacity.value = withTiming(1, { duration: motion.fast });
     });
 
   const content = scroll ? (

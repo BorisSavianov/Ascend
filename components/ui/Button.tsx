@@ -10,6 +10,7 @@ import {
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import { colors, motion, radius, spacing, typography } from '../../lib/theme';
@@ -96,10 +97,10 @@ export default function Button({
         accessibilityState={{ disabled: disabled || loading }}
         onPressIn={() => {
           if (reducedMotion) return;
-          scale.value = withTiming(motion.pressScale, { duration: motion.fast });
+          scale.value = withTiming(motion.pressScale, { duration: motion.instant });
         }}
         onPressOut={() => {
-          scale.value = withTiming(1, { duration: motion.fast });
+          scale.value = withSpring(1, motion.spring.snappy);
         }}
         style={{
           minHeight: size === 'lg' ? 56 : 52,
@@ -123,10 +124,10 @@ export default function Button({
             {leading ? <View>{leading}</View> : null}
             <Text
               style={[
-                typography.bodySm,
+                typography.label,
                 {
                   color: variantStyle.textColor,
-                  fontFamily: typography.label.fontFamily,
+                  fontSize: size === 'lg' ? 15 : 13,
                 },
               ]}
             >

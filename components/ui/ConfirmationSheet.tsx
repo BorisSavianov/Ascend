@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import Animated, {
-  interpolate,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import { colors, motion, radius, spacing, typography } from '../../lib/theme';
@@ -32,17 +32,24 @@ export default function ConfirmationSheet({
   onCancel,
 }: Props) {
   const reducedMotion = useReducedMotionPreference();
-  const progress = useSharedValue(0);
+  const translateY = useSharedValue(visible ? 0 : 48);
+  const opacity = useSharedValue(visible ? 1 : 0);
 
   useEffect(() => {
-    progress.value = withTiming(visible ? 1 : 0, {
-      duration: reducedMotion ? motion.fast : motion.slow,
-    });
-  }, [progress, reducedMotion, visible]);
+    if (visible) {
+      translateY.value = reducedMotion
+        ? 0
+        : withSpring(0, motion.spring.default);
+      opacity.value = withTiming(1, { duration: motion.fast });
+    } else {
+      translateY.value = withTiming(64, { duration: motion.fast });
+      opacity.value = withTiming(0, { duration: motion.fast });
+    }
+  }, [translateY, opacity, reducedMotion, visible]);
 
   const sheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: interpolate(progress.value, [0, 1], [32, 0]) }],
-    opacity: progress.value,
+    transform: [{ translateY: translateY.value }],
+    opacity: opacity.value,
   }));
 
   return (

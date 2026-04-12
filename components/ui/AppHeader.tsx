@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View } from 'react-native';
-import { colors, spacing, typography } from '../../lib/theme';
+import { colors, fontFamily, spacing, typography } from '../../lib/theme';
 
 type Props = {
   title: string;
@@ -29,15 +29,17 @@ export default function AppHeader({ title, subtitle, eyebrow, trailing }: Props)
               typography.caption,
               {
                 marginBottom: spacing.sm,
-                color: colors.text.tertiary,
-                letterSpacing: 0.4,
+                color: colors.accent.primary,
+                letterSpacing: 1.2,
+                fontFamily: fontFamily.medium,
+                textTransform: 'uppercase',
               },
             ]}
           >
             {eyebrow}
           </Text>
         ) : null}
-        <Text style={typography.h1}>{title}</Text>
+        <Text style={[typography.h1, { fontFamily: fontFamily.displayBold }]}>{title}</Text>
         {subtitle ? (
           <Text
             style={[
