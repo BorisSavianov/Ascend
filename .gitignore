@@ -24,4 +24,4 @@ supabase/.temp/
 *.keystore
 *.idsig
 .openclaw
-.worktrees/.worktrees/
+.worktrees/
