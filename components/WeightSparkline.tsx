@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text, View } from 'react-native';
 import { CartesianChart, Line } from 'victory-native';
-import { colors, typography } from '../lib/theme';
+import { colors, fontFamily, typography } from '../lib/theme';
 
 type DataPoint = {
   date: string;
@@ -31,7 +31,18 @@ export default function WeightSparkline({ data }: Props) {
 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', height: 48 }}>
-      <Text style={[typography.caption, { width: 40, textAlign: 'right', marginRight: 6 }]}>
+      <Text
+        style={[
+          typography.caption,
+          {
+            width: 44,
+            textAlign: 'right',
+            marginRight: 6,
+            fontFamily: fontFamily.monoRegular,
+            fontVariant: ['tabular-nums'],
+          },
+        ]}
+      >
         {first.toFixed(1)}
       </Text>
       <View style={{ flex: 1, height: 48 }}>
@@ -50,7 +61,17 @@ export default function WeightSparkline({ data }: Props) {
           )}
         </CartesianChart>
       </View>
-      <Text style={[typography.caption, { width: 40, marginLeft: 6 }]}>
+      <Text
+        style={[
+          typography.caption,
+          {
+            width: 44,
+            marginLeft: 6,
+            fontFamily: fontFamily.monoRegular,
+            fontVariant: ['tabular-nums'],
+          },
+        ]}
+      >
         {last.toFixed(1)}
       </Text>
     </View>

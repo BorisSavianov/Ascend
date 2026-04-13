@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   Text,
   View,
 } from 'react-native';
+import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 import { format } from 'date-fns';
 import { router } from 'expo-router';
 import ExerciseRowComponent from '../../components/ExerciseRow';
@@ -32,7 +32,8 @@ import Surface from '../../components/ui/Surface';
 import TextField from '../../components/ui/TextField';
 import Button from '../../components/ui/Button';
 import UndoToast from '../../components/ui/UndoToast';
-import { colors, radius, spacing, typography } from '../../lib/theme';
+import { colors, fontFamily, radius, spacing, typography } from '../../lib/theme';
+import { SkeletonBox } from '../../components/ui/Skeleton';
 
 type Preset = (typeof EXERCISE_PRESETS)[number];
 
@@ -192,9 +193,21 @@ function MoveScreenContent() {
 
         {/* ── Workout Program Section ─────────────────────────────────────── */}
         {dayLoading ? (
-          <View style={{ alignItems: 'center', paddingVertical: spacing.xl }}>
-            <ActivityIndicator color={colors.accent.primary} />
-          </View>
+          <Surface>
+            <View style={{ gap: spacing.md }}>
+              <SkeletonBox width="55%" height={20} />
+              <SkeletonBox width="38%" height={13} />
+              <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
+                {[1, 2, 3].map((i) => (
+                  <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <SkeletonBox width="52%" height={14} />
+                    <SkeletonBox width={60} height={14} />
+                  </View>
+                ))}
+              </View>
+              <SkeletonBox width="100%" height={56} borderRadius={radius.md} style={{ marginTop: spacing.sm }} />
+            </View>
+          </Surface>
         ) : !workoutDay ? (
           <Surface>
             <Text style={typography.h3}>Program not set up</Text>
@@ -213,28 +226,28 @@ function MoveScreenContent() {
           />
         ) : activeSession ? (
           /* Active session in progress — show resume banner */
-          <Surface elevated>
+          <Surface elevated gradient="intensity">
             <View style={{ gap: spacing.md }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                 <View
                   style={{
                     width: 8,
                     height: 8,
-                    borderRadius: 4,
-                    backgroundColor: colors.semantic.warning,
+                    borderRadius: radius.pill,
+                    backgroundColor: colors.intensity.primary,
                   }}
                 />
-                <Text style={[typography.label, { color: colors.semantic.warning }]}>
+                <Text style={[typography.label, { color: colors.intensity.primary }]}>
                   Workout in progress
                 </Text>
               </View>
               <Text style={typography.h3}>{workoutDay.name}</Text>
-              <Button label="Resume workout" onPress={handleResumeWorkout} />
+              <Button label="Resume workout" onPress={handleResumeWorkout} variant="intensity" />
             </View>
           </Surface>
         ) : (
           /* Training day, no active session — show preview + start button */
-          <Surface>
+          <Surface elevated gradient="intensity">
             <View style={{ gap: spacing.lg }}>
               <View style={{ gap: spacing.xs }}>
                 <Text style={typography.h3}>{workoutDay.name}</Text>
@@ -264,7 +277,16 @@ function MoveScreenContent() {
                       <Text style={[typography.bodySm, { flex: 1 }]} numberOfLines={1}>
                         {ex.exercise_template.name}
                       </Text>
-                      <Text style={[typography.caption, { color: colors.text.tertiary }]}>
+                      <Text
+                        style={[
+                          typography.caption,
+                          {
+                            color: colors.text.tertiary,
+                            fontFamily: fontFamily.monoRegular,
+                            fontVariant: ['tabular-nums'],
+                          },
+                        ]}
+                      >
                         {targetSets} × {repsMin}–{repsMax}
                       </Text>
                     </View>
@@ -277,6 +299,7 @@ function MoveScreenContent() {
                   label="Start workout"
                   onPress={handleStartWorkout}
                   loading={isStarting}
+                  variant="intensity"
                   style={{ flex: 1 }}
                 />
                 <Button
@@ -328,7 +351,11 @@ function MoveScreenContent() {
           </Pressable>
 
           {showCardio ? (
-            <View style={{ gap: spacing.xl, marginTop: spacing.sm }}>
+            <Animated.View
+              entering={FadeInDown.duration(220)}
+              exiting={FadeOutUp.duration(140)}
+              style={{ gap: spacing.xl, marginTop: spacing.sm }}
+            >
               <View>
                 <Text style={typography.label}>Quick presets</Text>
                 <ScrollView
@@ -419,7 +446,7 @@ function MoveScreenContent() {
                   </Text>
                 </Surface>
               )}
-            </View>
+            </Animated.View>
           ) : null}
         </View>
       </View>
@@ -464,7 +491,11 @@ function SummaryCard({
       <Text
         style={[
           typography.h3,
-          { color: tint, fontVariant: ['tabular-nums'] },
+          {
+            color: tint,
+            fontFamily: fontFamily.monoMedium,
+            fontVariant: ['tabular-nums'],
+          },
         ]}
       >
         {value}

@@ -16,7 +16,7 @@ import Animated, {
 import { colors, motion, radius, spacing, typography } from '../../lib/theme';
 import { useReducedMotionPreference } from '../../hooks/useReducedMotionPreference';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'destructive';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'destructive' | 'intensity';
 type Size = 'md' | 'lg';
 
 type Props = {
@@ -56,6 +56,12 @@ function getVariantStyle(variant: Variant, disabled: boolean) {
       return {
         backgroundColor: colors.semantic.danger,
         borderColor: colors.semantic.danger,
+        textColor: colors.bg.canvas,
+      };
+    case 'intensity':
+      return {
+        backgroundColor: colors.intensity.primary,
+        borderColor: colors.intensity.primary,
         textColor: colors.bg.canvas,
       };
     case 'primary':

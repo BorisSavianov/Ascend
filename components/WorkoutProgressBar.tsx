@@ -7,7 +7,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Button from './ui/Button';
-import { colors, spacing, typography } from '../lib/theme';
+import { colors, fontFamily, motion, spacing, typography } from '../lib/theme';
 
 type Props = {
   completedSets: number;
@@ -39,7 +39,7 @@ export default function WorkoutProgressBar({
 
   useEffect(() => {
     const fraction = totalSets > 0 ? completedSets / totalSets : 0;
-    progress.value = withTiming(fraction, { duration: 300 });
+    progress.value = withTiming(fraction, { duration: motion.standard });
   }, [completedSets, totalSets]);
 
   const barStyle = useAnimatedStyle(() => ({
@@ -74,7 +74,7 @@ export default function WorkoutProgressBar({
             {
               height: 4,
               borderRadius: 2,
-              backgroundColor: colors.accent.primary,
+              backgroundColor: colors.intensity.primary,
             },
             barStyle,
           ]}
@@ -94,6 +94,7 @@ export default function WorkoutProgressBar({
             typography.caption,
             {
               color: colors.text.secondary,
+              fontFamily: fontFamily.monoRegular,
               fontVariant: ['tabular-nums'],
             },
           ]}
@@ -105,6 +106,7 @@ export default function WorkoutProgressBar({
             typography.caption,
             {
               color: colors.text.tertiary,
+              fontFamily: fontFamily.monoMedium,
               fontVariant: ['tabular-nums'],
             },
           ]}
@@ -118,7 +120,7 @@ export default function WorkoutProgressBar({
         label={halfDone ? 'Finish workout' : 'Finish early'}
         onPress={onFinish}
         loading={isFinishing}
-        variant={halfDone ? 'primary' : 'secondary'}
+        variant={halfDone ? 'intensity' : 'secondary'}
         size="md"
       />
     </View>

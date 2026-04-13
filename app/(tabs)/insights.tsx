@@ -3,7 +3,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import * as Clipboard from 'expo-clipboard';
 import {
-  ActivityIndicator,
   Animated,
   FlatList,
   Pressable,
@@ -27,7 +26,7 @@ import BottomActionBar from '../../components/ui/BottomActionBar';
 import PathBadge from '../../components/PathBadge';
 import ThreadSheet from '../../components/ThreadSheet';
 import ProactiveInsightBanner from '../../components/ProactiveInsightBanner';
-import { colors, spacing, typography } from '../../lib/theme';
+import { colors, fontFamily, spacing, typography } from '../../lib/theme';
 
 function StreamingDots() {
   const values = useRef(
@@ -104,9 +103,9 @@ function ChatBubble({ message }: { message: LocalMessage }) {
                 bullet_list_item: { color: colors.text.primary },
                 ordered_list_item: { color: colors.text.primary },
                 code_inline: { color: colors.text.primary },
-                heading1: { color: colors.text.primary, marginVertical: 4 },
-                heading2: { color: colors.text.primary, marginVertical: 4 },
-                heading3: { color: colors.text.primary, marginVertical: 4 },
+                heading1: { color: colors.text.primary, marginVertical: 4, fontFamily: fontFamily.displayBold, fontSize: 22 },
+                heading2: { color: colors.text.primary, marginVertical: 4, fontFamily: fontFamily.displaySemi, fontSize: 18 },
+                heading3: { color: colors.text.primary, marginVertical: 4, fontFamily: fontFamily.displaySemi, fontSize: 15 },
               }}
             >
               {message.content}
@@ -370,7 +369,18 @@ function InsightsScreenContent() {
                 }}
               >
                 {isStreaming ? (
-                  <ActivityIndicator size="small" color={colors.text.tertiary} />
+                  <View style={{ width: 18, height: 18, alignItems: 'center', justifyContent: 'center' }}>
+                    <View
+                      style={{
+                        width: 14,
+                        height: 14,
+                        borderRadius: 7,
+                        borderWidth: 2,
+                        borderColor: colors.text.tertiary,
+                        borderTopColor: 'transparent',
+                      }}
+                    />
+                  </View>
                 ) : (
                   <Ionicons
                     name="arrow-up"
