@@ -50,6 +50,7 @@ function LogScreenContent() {
   const searchInputRef = useRef<TextInput>(null);
   const [searchText, setSearchText] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [logError, setLogError] = useState<string | null>(null);
 
   const { data: frequentFoods = [] } = useFrequentFoods();
   const { data: todayMeals = [] } = useTodayMeals();
@@ -137,8 +138,16 @@ function LogScreenContent() {
     }
   }
 
+  useEffect(() => {
+    if (selectedItems.length > 0) setLogError(null);
+  }, [selectedItems.length]);
+
   const handleLog = useCallback(() => {
-    if (selectedItems.length === 0) return;
+    if (selectedItems.length === 0) {
+      setLogError('Add at least one food before logging.');
+      return;
+    }
+    setLogError(null);
     const label = mealLabel.trim() || `Meal ${sortOrder}`;
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     logMeal(
@@ -184,7 +193,7 @@ function LogScreenContent() {
   }, [localResults, apiResults]);
 
   return (
-    <Screen edges={['top', 'left', 'right', 'bottom']}>
+    <Screen>
       <View style={{ flex: 1 }}>
         <AppHeader
           title="Log meal"
@@ -365,6 +374,11 @@ function LogScreenContent() {
               {selectedItems.length} item{selectedItems.length === 1 ? '' : 's'}
             </Text>
           </View>
+          {logError ? (
+            <Text style={[typography.caption, { color: colors.semantic.danger }]}>
+              {logError}
+            </Text>
+          ) : null}
           <Button
             label="Log meal"
             onPress={handleLog}

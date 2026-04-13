@@ -5,6 +5,8 @@ import * as Clipboard from 'expo-clipboard';
 import {
   Animated,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -200,7 +202,11 @@ function InsightsScreenContent() {
   ];
 
   return (
-    <Screen edges={['top', 'left', 'right', 'bottom']}>
+    <Screen>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
       <View style={{ flex: 1 }}>
         <AppHeader
           title="Fitness Assistant"
@@ -393,6 +399,7 @@ function InsightsScreenContent() {
           </Surface>
         </BottomActionBar>
       </View>
+      </KeyboardAvoidingView>
 
       <ThreadSheet
         visible={showThreadSheet}
