@@ -5,8 +5,8 @@ import {
   Text,
   View,
   Pressable,
-  ActivityIndicator,
 } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,7 +20,8 @@ import WorkoutProgressBar from '../../components/WorkoutProgressBar';
 import WorkoutHistorySheet from '../../components/WorkoutHistorySheet';
 import ConfirmationSheet from '../../components/ui/ConfirmationSheet';
 import Surface from '../../components/ui/Surface';
-import { colors, spacing, typography } from '../../lib/theme';
+import { SkeletonBox } from '../../components/ui/Skeleton';
+import { colors, fontFamily, motion, radius, spacing, typography } from '../../lib/theme';
 import type { WorkoutDayExercise } from '../../types/workout';
 
 export default function WorkoutSessionScreen() {
@@ -39,6 +40,12 @@ export default function WorkoutSessionScreen() {
   const [elapsed, setElapsed] = useState(0);
   const [showHistory, setShowHistory] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
+
+  // Thin top-of-header progress bar
+  const topProgress = useSharedValue(0);
+  const topBarStyle = useAnimatedStyle(() => ({
+    width: `${topProgress.value * 100}%`,
+  }));
 
   // Elapsed timer
   useEffect(() => {
@@ -103,6 +110,11 @@ export default function WorkoutSessionScreen() {
       0,
     ) ?? 0;
 
+  useEffect(() => {
+    const fraction = totalSets > 0 ? completedSets / totalSets : 0;
+    topProgress.value = withTiming(fraction, { duration: motion.standard });
+  }, [completedSets, totalSets]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Build a map from exercise_template_id to WorkoutDayExercise for target data
   // We don't have workoutDay data here, but we can reconstruct targets from
   // the logged_sets count since pre-creation used the correct target_sets.
@@ -139,42 +151,113 @@ export default function WorkoutSessionScreen() {
         {/* Custom header */}
         <View
           style={{
-            paddingTop: insets.top + spacing.sm,
-            paddingBottom: spacing.md,
-            paddingHorizontal: spacing.xl,
-            flexDirection: 'row',
-            alignItems: 'center',
             borderBottomWidth: 1,
             borderBottomColor: colors.border.subtle,
-            gap: spacing.md,
           }}
         >
-          <Pressable
-            onPress={handleBackPress}
-            hitSlop={8}
-            style={{ padding: spacing.xs }}
-            accessibilityLabel="Go back"
+          {/* Thin animated progress bar along the top edge */}
+          <View
+            style={{
+              height: 3,
+              backgroundColor: colors.border.subtle,
+              overflow: 'hidden',
+            }}
           >
-            <Ionicons name="chevron-back" size={22} color={colors.text.primary} />
-          </Pressable>
-          <Text style={[typography.body, { flex: 1, fontVariant: [] }]} numberOfLines={1}>
-            {dayName}
-          </Text>
-          <Pressable
-            onPress={() => setShowHistory(true)}
-            hitSlop={8}
-            style={{ padding: spacing.xs }}
-            accessibilityLabel="View history"
+            <Animated.View
+              style={[
+                {
+                  height: 3,
+                  backgroundColor: colors.intensity.primary,
+                },
+                topBarStyle,
+              ]}
+            />
+          </View>
+
+          <View
+            style={{
+              paddingTop: insets.top + spacing.sm,
+              paddingBottom: spacing.md,
+              paddingHorizontal: spacing.xl,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.md,
+            }}
           >
-            <Ionicons name="time-outline" size={22} color={colors.text.secondary} />
-          </Pressable>
+            <Pressable
+              onPress={handleBackPress}
+              hitSlop={8}
+              style={{ padding: spacing.xs }}
+              accessibilityLabel="Go back"
+            >
+              <Ionicons name="chevron-back" size={22} color={colors.text.primary} />
+            </Pressable>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={typography.h2} numberOfLines={1}>
+                {dayName}
+              </Text>
+              <Text
+                style={[
+                  typography.caption,
+                  {
+                    fontFamily: fontFamily.monoRegular,
+                    color: colors.intensity.primary,
+                    fontVariant: ['tabular-nums'],
+                  },
+                ]}
+              >
+                {String(Math.floor(elapsed / 60)).padStart(2, '0')}:{String(elapsed % 60).padStart(2, '0')}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => setShowHistory(true)}
+              hitSlop={8}
+              style={{ padding: spacing.xs }}
+              accessibilityLabel="View history"
+            >
+              <Ionicons name="time-outline" size={22} color={colors.text.secondary} />
+            </Pressable>
+          </View>
         </View>
 
         {/* Content */}
         {isLoading ? (
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-            <ActivityIndicator color={colors.accent.primary} />
-          </View>
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ padding: spacing.xl, gap: spacing.md }}
+          >
+            {[1, 2, 3].map((i) => (
+              <View
+                key={i}
+                style={{
+                  borderRadius: radius.lg,
+                  borderWidth: 1,
+                  borderColor: colors.border.subtle,
+                  backgroundColor: colors.bg.surface,
+                  padding: spacing.lg,
+                  gap: spacing.md,
+                  marginBottom: spacing.md,
+                }}
+              >
+                <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'center' }}>
+                  <SkeletonBox width={52} height={52} borderRadius={12} />
+                  <View style={{ flex: 1, gap: spacing.sm }}>
+                    <SkeletonBox width="65%" height={16} />
+                    <SkeletonBox width="45%" height={12} />
+                  </View>
+                </View>
+                {[1, 2, 3].map((j) => (
+                  <View key={j} style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
+                    <SkeletonBox width={28} height={36} />
+                    <SkeletonBox width={68} height={36} />
+                    <SkeletonBox height={36} style={{ flex: 1 }} />
+                    <SkeletonBox width={52} height={36} />
+                    <SkeletonBox width={44} height={36} borderRadius={999} />
+                  </View>
+                ))}
+              </View>
+            ))}
+          </ScrollView>
         ) : !session ? (
           <View
             style={{

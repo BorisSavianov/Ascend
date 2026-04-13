@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { colors, spacing, typography } from '../lib/theme';
+import { colors, radius, spacing, typography } from '../lib/theme';
 
 export const PRESET_MEAL_LABELS = [
   'Breakfast',
@@ -48,7 +48,7 @@ export default function MealLabelSelector({ value, onChange }: Props) {
               style={{
                 paddingHorizontal: spacing.md,
                 paddingVertical: spacing.sm,
-                borderRadius: 20,
+                borderRadius: radius.lg,
                 borderWidth: 1,
                 borderColor: selected ? colors.accent.primary : colors.border.subtle,
                 backgroundColor: selected ? colors.accent.primaryMuted : 'transparent',
@@ -74,7 +74,7 @@ export default function MealLabelSelector({ value, onChange }: Props) {
           style={{
             paddingHorizontal: spacing.md,
             paddingVertical: spacing.sm,
-            borderRadius: 20,
+            borderRadius: radius.lg,
             borderWidth: 1,
             borderColor:
               showCustom || (!isPreset && value.length > 0)
@@ -98,7 +98,7 @@ export default function MealLabelSelector({ value, onChange }: Props) {
             {
               borderWidth: 1,
               borderColor: colors.border.subtle,
-              borderRadius: 8,
+              borderRadius: radius.xs,
               paddingHorizontal: spacing.md,
               paddingVertical: spacing.sm,
               color: colors.text.primary,

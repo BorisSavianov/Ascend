@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   Text,
   View,
@@ -10,12 +9,13 @@ import {
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import { colors, motion, radius, spacing, typography } from '../../lib/theme';
 import { useReducedMotionPreference } from '../../hooks/useReducedMotionPreference';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'destructive';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'destructive' | 'intensity';
 type Size = 'md' | 'lg';
 
 type Props = {
@@ -57,6 +57,12 @@ function getVariantStyle(variant: Variant, disabled: boolean) {
         borderColor: colors.semantic.danger,
         textColor: colors.bg.canvas,
       };
+    case 'intensity':
+      return {
+        backgroundColor: colors.intensity.primary,
+        borderColor: colors.intensity.primary,
+        textColor: colors.bg.canvas,
+      };
     case 'primary':
     default:
       return {
@@ -96,10 +102,10 @@ export default function Button({
         accessibilityState={{ disabled: disabled || loading }}
         onPressIn={() => {
           if (reducedMotion) return;
-          scale.value = withTiming(motion.pressScale, { duration: motion.fast });
+          scale.value = withTiming(motion.pressScale, { duration: motion.instant });
         }}
         onPressOut={() => {
-          scale.value = withTiming(1, { duration: motion.fast });
+          scale.value = withSpring(1, motion.spring.snappy);
         }}
         style={{
           minHeight: size === 'lg' ? 56 : 52,
@@ -115,18 +121,25 @@ export default function Button({
         }}
       >
         {loading ? (
-          <ActivityIndicator
-            color={variantStyle.textColor}
+          <View
+            style={{
+              width: 18,
+              height: 18,
+              borderRadius: 9,
+              borderWidth: 2,
+              borderColor: variantStyle.textColor,
+              borderTopColor: 'transparent',
+            }}
           />
         ) : (
           <>
             {leading ? <View>{leading}</View> : null}
             <Text
               style={[
-                typography.bodySm,
+                typography.label,
                 {
                   color: variantStyle.textColor,
-                  fontFamily: typography.label.fontFamily,
+                  fontSize: size === 'lg' ? 15 : 13,
                 },
               ]}
             >

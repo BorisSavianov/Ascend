@@ -3,9 +3,10 @@ import { Animated, Pressable, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Swipeable } from 'react-native-gesture-handler';
+import ReAnimated, { FadeInDown } from 'react-native-reanimated';
 import { calculateNutrition, formatCalories } from '../lib/calculations';
 import type { MealItemDraft } from '../store/useAppStore';
-import { colors, spacing, typography } from '../lib/theme';
+import { colors, fontFamily, radius, spacing, typography } from '../lib/theme';
 
 type Props = {
   item: MealItemDraft;
@@ -41,56 +42,77 @@ export default function MealItemRow({ item, onAmountChange, onRemove }: Props) {
   }
 
   function renderRightActions(
-    _progress: Animated.AnimatedInterpolation<number>,
+    progress: Animated.AnimatedInterpolation<number>,
     dragX: Animated.AnimatedInterpolation<number>,
   ) {
+    // Parallax: icon slides in from right as swipe opens
     const iconTranslate = dragX.interpolate({
       inputRange: [-104, 0],
       outputRange: [0, 24],
       extrapolate: 'clamp',
     });
 
+    // Background fades from transparent → danger red as swipe progresses
+    const bgColor = progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: ['rgba(255,69,58,0)', 'rgba(255,69,58,1)'],
+      extrapolate: 'clamp',
+    });
+
     return (
-      <Pressable
-        onPress={() => {
-          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          swipeableRef.current?.close();
-          onRemove(item.id);
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={`Delete ${item.foodName}`}
+      <Animated.View
         style={{
           width: 104,
-          backgroundColor: colors.semantic.danger,
+          backgroundColor: bgColor,
           justifyContent: 'center',
           alignItems: 'center',
         }}
       >
-        <Animated.View style={{ alignItems: 'center', transform: [{ translateX: iconTranslate }] }}>
-          <Ionicons name="trash-outline" size={18} color={colors.bg.canvas} />
-          <Text
-            style={[
-              typography.caption,
-              {
-                color: colors.bg.canvas,
-                marginTop: spacing.xs,
-              },
-            ]}
-          >
-            Delete
-          </Text>
-        </Animated.View>
-      </Pressable>
+        <Pressable
+          onPress={() => {
+            void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            swipeableRef.current?.close();
+            onRemove(item.id);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`Delete ${item.foodName}`}
+          style={{
+            flex: 1,
+            width: '100%',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <Animated.View style={{ alignItems: 'center', transform: [{ translateX: iconTranslate }] }}>
+            <Ionicons name="trash-outline" size={18} color={colors.text.primary} />
+            <Text
+              style={[
+                typography.caption,
+                {
+                  color: colors.text.primary,
+                  marginTop: spacing.xs,
+                },
+              ]}
+            >
+              Delete
+            </Text>
+          </Animated.View>
+        </Pressable>
+      </Animated.View>
     );
   }
 
   return (
+    <ReAnimated.View entering={FadeInDown.duration(220)}>
     <Swipeable
       ref={swipeableRef}
       overshootRight={false}
       rightThreshold={52}
       friction={2}
       renderRightActions={renderRightActions}
+      onSwipeableWillOpen={() => {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
+      }}
     >
       <View
         style={{
@@ -116,7 +138,7 @@ export default function MealItemRow({ item, onAmountChange, onRemove }: Props) {
         <View
           style={{
             minWidth: 98,
-            borderRadius: 14,
+            borderRadius: radius.sm,
             borderWidth: 1,
             borderColor: colors.border.default,
             backgroundColor: colors.bg.input,
@@ -130,9 +152,10 @@ export default function MealItemRow({ item, onAmountChange, onRemove }: Props) {
             onChangeText={handleAmountChange}
             keyboardType="decimal-pad"
             style={[
-              typography.body,
+              typography.bodySm,
               {
                 color: colors.text.primary,
+                fontFamily: fontFamily.monoRegular,
                 minWidth: 52,
                 textAlign: 'center',
                 fontVariant: ['tabular-nums'],
@@ -144,5 +167,6 @@ export default function MealItemRow({ item, onAmountChange, onRemove }: Props) {
         </View>
       </View>
     </Swipeable>
+    </ReAnimated.View>
   );
 }

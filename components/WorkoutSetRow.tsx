@@ -1,14 +1,22 @@
-import React, { memo } from 'react';
+import React, { memo, useEffect } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography } from '../lib/theme';
+import * as Haptics from 'expo-haptics';
+import Animated, {
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+import { colors, fontFamily, motion, radius, spacing, typography } from '../lib/theme';
 import type { SetInputState } from '../store/useWorkoutStore';
+import { useReducedMotionPreference } from '../hooks/useReducedMotionPreference';
 
 type Props = {
   setNumber: number;
@@ -40,6 +48,41 @@ const WorkoutSetRow = memo(function WorkoutSetRow({
   onToggleComplete,
 }: Props) {
   const { weight, reps, isCompleted, isSaving } = inputState;
+  const reducedMotion = useReducedMotionPreference();
+
+  // Animate row background: transparent → surfaceRaised on completion
+  const completedProg = useSharedValue(isCompleted ? 1 : 0);
+  useEffect(() => {
+    completedProg.value = withTiming(isCompleted ? 1 : 0, {
+      duration: motion.standard,
+    });
+  }, [isCompleted]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const rowStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      completedProg.value,
+      [0, 1],
+      ['transparent', colors.bg.surfaceRaised],
+    ),
+  }));
+
+  // Animate checkmark icon: scale pulse on completion
+  const checkScale = useSharedValue(1);
+
+  function handleToggle() {
+    const nowCompleting = !isCompleted;
+    if (!reducedMotion && nowCompleting) {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      checkScale.value = withSpring(1.25, motion.spring.bouncy, () => {
+        checkScale.value = withSpring(1, motion.spring.snappy);
+      });
+    }
+    onToggleComplete();
+  }
+
+  const checkIconStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: checkScale.value }],
+  }));
 
   const prevLabel =
     previousWeightKg != null && previousReps != null
@@ -51,24 +94,29 @@ const WorkoutSetRow = memo(function WorkoutSetRow({
   const repPlaceholder = `${targetRepsMin}–${targetRepsMax}`;
 
   return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        minHeight: 44,
-        paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.xs,
-        backgroundColor: isCompleted
-          ? colors.bg.surfaceRaised
-          : 'transparent',
-        gap: spacing.sm,
-      }}
+    <Animated.View
+      style={[
+        {
+          flexDirection: 'row',
+          alignItems: 'center',
+          minHeight: 44,
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.xs,
+          gap: spacing.sm,
+        },
+        rowStyle,
+      ]}
     >
       {/* Set number */}
       <Text
         style={[
           typography.caption,
-          { width: 28, textAlign: 'center', color: colors.text.disabled },
+          {
+            width: 28,
+            textAlign: 'center',
+            color: isCompleted ? colors.text.tertiary : colors.text.disabled,
+            fontFamily: fontFamily.monoRegular,
+          },
         ]}
       >
         {setNumber}
@@ -82,6 +130,7 @@ const WorkoutSetRow = memo(function WorkoutSetRow({
             width: 68,
             textAlign: 'center',
             color: colors.text.tertiary,
+            fontFamily: fontFamily.monoRegular,
             fontVariant: ['tabular-nums'],
           },
         ]}
@@ -97,7 +146,7 @@ const WorkoutSetRow = memo(function WorkoutSetRow({
           flexDirection: 'row',
           alignItems: 'center',
           height: 36,
-          borderRadius: 8,
+          borderRadius: radius.xs,
           borderWidth: 1,
           borderColor: isCompleted ? colors.border.subtle : colors.border.default,
           backgroundColor: colors.bg.input,
@@ -116,6 +165,7 @@ const WorkoutSetRow = memo(function WorkoutSetRow({
             {
               flex: 1,
               color: isCompleted ? colors.text.secondary : colors.text.primary,
+              fontFamily: fontFamily.monoMedium,
               fontVariant: ['tabular-nums'],
               textAlign: 'center',
               paddingVertical: 0,
@@ -138,7 +188,7 @@ const WorkoutSetRow = memo(function WorkoutSetRow({
         style={{
           width: 52,
           height: 36,
-          borderRadius: 8,
+          borderRadius: radius.xs,
           borderWidth: 1,
           borderColor: isCompleted ? colors.border.subtle : colors.border.default,
           backgroundColor: colors.bg.input,
@@ -156,7 +206,8 @@ const WorkoutSetRow = memo(function WorkoutSetRow({
           style={[
             typography.bodySm,
             {
-              color: isCompleted ? colors.text.secondary : colors.text.primary,
+              color: isCompleted ? colors.semantic.success : colors.text.primary,
+              fontFamily: fontFamily.monoMedium,
               fontVariant: ['tabular-nums'],
               textAlign: 'center',
               paddingVertical: 0,
@@ -169,7 +220,7 @@ const WorkoutSetRow = memo(function WorkoutSetRow({
 
       {/* Done toggle */}
       <Pressable
-        onPress={onToggleComplete}
+        onPress={handleToggle}
         hitSlop={8}
         style={{
           width: 44,
@@ -182,18 +233,27 @@ const WorkoutSetRow = memo(function WorkoutSetRow({
         accessibilityLabel={`Set ${setNumber} ${isCompleted ? 'completed' : 'incomplete'}`}
       >
         {isSaving ? (
-          <ActivityIndicator size="small" color={colors.text.tertiary} />
-        ) : (
-          <Ionicons
-            name={isCompleted ? 'checkmark-circle' : 'ellipse-outline'}
-            size={22}
-            color={
-              isCompleted ? colors.semantic.success : colors.text.disabled
-            }
+          <View
+            style={{
+              width: 20,
+              height: 20,
+              borderRadius: radius.pill,
+              borderWidth: 2,
+              borderColor: colors.text.disabled,
+              borderTopColor: 'transparent',
+            }}
           />
+        ) : (
+          <Animated.View style={checkIconStyle}>
+            <Ionicons
+              name={isCompleted ? 'checkmark-circle' : 'ellipse-outline'}
+              size={22}
+              color={isCompleted ? colors.semantic.success : colors.text.disabled}
+            />
+          </Animated.View>
         )}
       </Pressable>
-    </View>
+    </Animated.View>
   );
 });
 

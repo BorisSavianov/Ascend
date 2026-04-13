@@ -1,7 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, spacing, typography } from '../lib/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
+import { colors, fontFamily, gradients, radius, shadows, spacing, typography } from '../lib/theme';
 import { EXERCISE_IMAGES, MUSCLE_GROUP_ICONS } from '../constants/exerciseImages';
 import { useWorkoutStore } from '../store/useWorkoutStore';
 import { useLogSet } from '../hooks/useLogSet';
@@ -77,13 +79,19 @@ export default function WorkoutExerciseCard({
   return (
     <View
       style={{
-        backgroundColor: colors.bg.surface,
         borderRadius: radius.lg,
         borderWidth: 1,
-        borderColor: allComplete ? colors.border.default : colors.border.subtle,
+        borderColor: allComplete ? colors.intensity.primary + '55' : colors.border.subtle,
         overflow: 'hidden',
         marginBottom: spacing.md,
+        ...(shadows.md),
       }}
+    >
+    <LinearGradient
+      colors={gradients.intensity}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0.3, y: 1 }}
+      style={{ flex: 1 }}
     >
       {/* ── Header ── */}
       <Pressable
@@ -102,8 +110,8 @@ export default function WorkoutExerciseCard({
           style={{
             width: 52,
             height: 52,
-            borderRadius: 12,
-            backgroundColor: colors.accent.primaryMuted,
+            borderRadius: radius.sm,
+            backgroundColor: colors.intensity.muted,
             alignItems: 'center',
             justifyContent: 'center',
             overflow: 'hidden',
@@ -116,7 +124,7 @@ export default function WorkoutExerciseCard({
               resizeMode="cover"
             />
           ) : (
-            <Ionicons name={fallbackIcon as any} size={24} color={colors.accent.primary} />
+            <Ionicons name={fallbackIcon as any} size={24} color={colors.intensity.primary} />
           )}
         </View>
 
@@ -134,7 +142,12 @@ export default function WorkoutExerciseCard({
               {template.equipment}
             </Text>
             <Text style={[typography.caption, { color: colors.border.strong }]}>·</Text>
-            <Text style={typography.caption}>
+            <Text
+              style={[
+                typography.caption,
+                { fontFamily: fontFamily.monoRegular, fontVariant: ['tabular-nums'] },
+              ]}
+            >
               {targetSets} × {targetRepsMin}–{targetRepsMax}
             </Text>
           </View>
@@ -147,6 +160,7 @@ export default function WorkoutExerciseCard({
               typography.caption,
               {
                 color: allComplete ? colors.semantic.success : colors.text.tertiary,
+                fontFamily: fontFamily.monoMedium,
                 fontVariant: ['tabular-nums'],
               },
             ]}
@@ -163,7 +177,10 @@ export default function WorkoutExerciseCard({
 
       {/* ── Set table ── (hidden when collapsed) */}
       {!isCollapsed ? (
-        <View>
+        <Animated.View
+          entering={FadeInDown.duration(220)}
+          exiting={FadeOutUp.duration(140)}
+        >
           {/* Column headers */}
           <View
             style={{
@@ -233,8 +250,9 @@ export default function WorkoutExerciseCard({
           })}
 
           <View style={{ height: spacing.sm }} />
-        </View>
+        </Animated.View>
       ) : null}
+    </LinearGradient>
     </View>
   );
 }

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   Switch,
@@ -39,12 +38,12 @@ import Surface from '../../components/ui/Surface';
 import TextField from '../../components/ui/TextField';
 import Button from '../../components/ui/Button';
 import ConfirmationSheet from '../../components/ui/ConfirmationSheet';
-import { colors, spacing, typography } from '../../lib/theme';
+import { colors, fontFamily, radius, spacing, typography } from '../../lib/theme';
 
 function SectionHeading({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <View style={{ marginBottom: spacing.md }}>
-      <Text style={typography.h3}>{title}</Text>
+      <Text style={typography.h2}>{title}</Text>
       {subtitle ? (
         <Text style={[typography.caption, { marginTop: spacing.xs }]}>
           {subtitle}
@@ -467,7 +466,16 @@ function NotificationsSection() {
                   </Text>
                 </View>
                 <Pressable onPress={() => setPickerKey(pickerKey === key ? null : key)}>
-                  <Text style={[typography.label, { color: colors.accent.primary }]}>
+                  <Text
+                    style={[
+                      typography.label,
+                      {
+                        color: colors.accent.primary,
+                        fontFamily: fontFamily.monoMedium,
+                        fontVariant: ['tabular-nums'],
+                      },
+                    ]}
+                  >
                     {String(value.hour).padStart(2, '0')}:{String(value.minute).padStart(2, '0')}
                   </Text>
                 </Pressable>
@@ -639,7 +647,7 @@ function PressableExport({
         minHeight: 52,
         borderWidth: 1,
         borderColor: loading ? colors.accent.primary : colors.border.default,
-        borderRadius: 16,
+        borderRadius: radius.md,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: colors.bg.surfaceRaised,
@@ -647,7 +655,16 @@ function PressableExport({
       }}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={colors.accent.primary} />
+        <View
+          style={{
+            width: 18,
+            height: 18,
+            borderRadius: 9,
+            borderWidth: 2,
+            borderColor: colors.accent.primary,
+            borderTopColor: 'transparent',
+          }}
+        />
       ) : (
         <Text style={typography.bodySm}>{label}</Text>
       )}

@@ -22,6 +22,23 @@ import {
 import { useAppStore } from '../store/useAppStore';
 import { colors } from '../lib/theme';
 
+// Font loading
+import { useFonts } from 'expo-font';
+import {
+  BarlowSemiCondensed_400Regular,
+  BarlowSemiCondensed_500Medium,
+  BarlowSemiCondensed_600SemiBold,
+  BarlowSemiCondensed_700Bold,
+} from '@expo-google-fonts/barlow-semi-condensed';
+import {
+  DMSans_400Regular,
+  DMSans_500Medium,
+} from '@expo-google-fonts/dm-sans';
+import {
+  DMMono_400Regular,
+  DMMono_500Medium,
+} from '@expo-google-fonts/dm-mono';
+
 // Keep splash screen visible until session check resolves
 void SplashScreen.preventAutoHideAsync();
 
@@ -31,6 +48,32 @@ export default function RootLayout() {
   // listener fires immediately if a session exists, which would race with
   // initAuth. We skip the listener's first event until initAuth is done.
   const initDoneRef = useRef(false);
+
+  // Track whether fonts have loaded so we can gate SplashScreen.hideAsync()
+  const fontsReadyRef = useRef(false);
+  // Track whether auth has resolved so we can gate SplashScreen.hideAsync()
+  const authReadyRef = useRef(false);
+
+  const [fontsLoaded] = useFonts({
+    BarlowSemiCondensed_400Regular,
+    BarlowSemiCondensed_500Medium,
+    BarlowSemiCondensed_600SemiBold,
+    BarlowSemiCondensed_700Bold,
+    DMSans_400Regular,
+    DMSans_500Medium,
+    DMMono_400Regular,
+    DMMono_500Medium,
+  });
+
+  // Once fonts load, attempt to hide splash (both conditions must be true)
+  useEffect(() => {
+    if (fontsLoaded) {
+      fontsReadyRef.current = true;
+      if (authReadyRef.current) {
+        void SplashScreen.hideAsync();
+      }
+    }
+  }, [fontsLoaded]);
 
   // Create QueryClient inside the component so it is bound to React's lifecycle.
   // Using useRef ensures a single stable instance across re-renders without
@@ -55,7 +98,12 @@ export default function RootLayout() {
       }
 
       const { data: { session } } = await auth.getSession();
-      await SplashScreen.hideAsync();
+
+      // Signal auth readiness; hide splash only when fonts are also loaded
+      authReadyRef.current = true;
+      if (fontsReadyRef.current) {
+        await SplashScreen.hideAsync();
+      }
 
       if (!isMounted.current) return;
 
@@ -97,6 +145,9 @@ export default function RootLayout() {
     void initAuth().catch((err) => {
       logger.warn('initAuth error:', err);
       initDoneRef.current = true;
+      // Ensure splash hides even on error
+      authReadyRef.current = true;
+      void SplashScreen.hideAsync();
     });
 
     // Handle deep links when app is already open (foreground)

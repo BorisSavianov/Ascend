@@ -1,10 +1,15 @@
 // components/ProactiveInsightBanner.tsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, Pressable } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 import { supabase } from '../lib/supabase';
 import Surface from './ui/Surface';
 import Button from './ui/Button';
-import { colors, spacing, typography } from '../lib/theme';
+import { colors, motion, spacing, typography } from '../lib/theme';
 import type { AiProactiveInsightRow } from '../types/database';
 
 type Props = {
@@ -14,6 +19,19 @@ type Props = {
 };
 
 export default function ProactiveInsightBanner({ insight, onDismiss, onAskAboutThis }: Props) {
+  const translateY = useSharedValue(-48);
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    opacity.value = withSpring(1, motion.spring.default);
+    translateY.value = withSpring(0, motion.spring.default);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+    opacity: opacity.value,
+  }));
+
   function handleDismiss() {
     // Dismiss immediately (optimistic). Fire-and-forget the DB write so a network
     // failure doesn't leave the banner in a broken state. The cancelled flag in
@@ -31,6 +49,7 @@ export default function ProactiveInsightBanner({ insight, onDismiss, onAskAboutT
   }
 
   return (
+    <Animated.View style={animatedStyle}>
     <Surface
       style={{
         marginHorizontal: spacing.xl,
@@ -63,5 +82,6 @@ export default function ProactiveInsightBanner({ insight, onDismiss, onAskAboutT
         </Pressable>
       </View>
     </Surface>
+    </Animated.View>
   );
 }

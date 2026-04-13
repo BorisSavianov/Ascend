@@ -30,7 +30,8 @@ import AppHeader from '../../components/ui/AppHeader';
 import Surface from '../../components/ui/Surface';
 import Button from '../../components/ui/Button';
 import UndoToast from '../../components/ui/UndoToast';
-import { colors, spacing, typography } from '../../lib/theme';
+import { SkeletonBox } from '../../components/ui/Skeleton';
+import { colors, fontFamily, radius, spacing, typography } from '../../lib/theme';
 
 export default function TodayScreen() {
   return (
@@ -134,9 +135,13 @@ function TodayScreenContent() {
         />
 
         <View style={{ paddingHorizontal: spacing.xl, gap: spacing.xl }}>
-          <Surface elevated overlay>
+          <Surface gradient="nutrition" elevated>
             <View style={{ alignItems: 'center' }}>
-              <CalorieRing consumed={consumed} target={calorieTarget} />
+              {summaryFetching && consumed === 0 ? (
+                <SkeletonBox width={200} height={200} borderRadius={100} />
+              ) : (
+                <CalorieRing consumed={consumed} target={calorieTarget} />
+              )}
             </View>
 
             <View
@@ -164,7 +169,7 @@ function TodayScreenContent() {
             </View>
 
             <View style={{ marginTop: spacing.xl }}>
-              <Text style={typography.label}>Macro balance</Text>
+              <Text style={[typography.label, { fontFamily: fontFamily.medium, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.text.tertiary }]}>Macro balance</Text>
               <View style={{ marginTop: spacing.md }}>
                 <MacroBar
                   proteinG={proteinG}
@@ -177,7 +182,7 @@ function TodayScreenContent() {
           </Surface>
 
           <View>
-            <Text style={typography.h3}>Meals</Text>
+            <Text style={typography.h2}>Meals</Text>
             <Text style={[typography.caption, { marginTop: spacing.xs, marginBottom: spacing.md }]}>
               Expand any meal to review items or remove it from today.
             </Text>
@@ -200,8 +205,8 @@ function TodayScreenContent() {
             )}
           </View>
 
-          <Surface>
-            <Text style={typography.h3}>This week</Text>
+          <Surface elevated>
+            <Text style={typography.h2}>This week</Text>
             <Text style={[typography.caption, { marginTop: spacing.xs }]}>
               Daily intake pattern across the last seven entries.
             </Text>
@@ -243,7 +248,7 @@ function MetricCard({
       style={{
         flex: 1,
         minHeight: 88,
-        borderRadius: 16,
+        borderRadius: radius.md,
         borderWidth: 1,
         borderColor: tone === 'accent' ? colors.accent.primary : colors.border.subtle,
         backgroundColor: tone === 'accent' ? colors.accent.primaryMuted : colors.bg.surface,
@@ -337,7 +342,7 @@ function MealCard({ meal, onDelete, isPendingDelete = false }: MealCardProps) {
                 style={{
                   paddingHorizontal: spacing.md,
                   paddingVertical: spacing.sm,
-                  borderRadius: 999,
+                  borderRadius: radius.pill,
                   backgroundColor: colors.bg.surfaceRaised,
                   borderWidth: 1,
                   borderColor: colors.border.subtle,
@@ -351,7 +356,7 @@ function MealCard({ meal, onDelete, isPendingDelete = false }: MealCardProps) {
                 style={{
                   paddingHorizontal: spacing.md,
                   paddingVertical: spacing.sm,
-                  borderRadius: 999,
+                  borderRadius: radius.pill,
                   backgroundColor: colors.bg.surfaceRaised,
                   borderWidth: 1,
                   borderColor: colors.border.subtle,
@@ -439,7 +444,7 @@ function DateNav({
         style={{
           width: 36,
           height: 36,
-          borderRadius: 18,
+          borderRadius: radius.pill,
           backgroundColor: colors.bg.surfaceRaised,
           borderWidth: 1,
           borderColor: colors.border.default,
@@ -460,7 +465,7 @@ function DateNav({
         style={{
           width: 36,
           height: 36,
-          borderRadius: 18,
+          borderRadius: radius.pill,
           backgroundColor: atToday ? colors.bg.surface : colors.bg.surfaceRaised,
           borderWidth: 1,
           borderColor: atToday ? colors.border.subtle : colors.border.default,

@@ -28,7 +28,8 @@ import Button from '../../components/ui/Button';
 import BottomActionBar from '../../components/ui/BottomActionBar';
 import EmptyState from '../../components/EmptyState';
 import Toast from '../../components/ui/Toast';
-import { colors, spacing, typography } from '../../lib/theme';
+import { colors, fontFamily, spacing, typography } from '../../lib/theme';
+import { SkeletonBox } from '../../components/ui/Skeleton';
 import { logger } from '../../lib/logger';
 
 let _draftCounter = 0;
@@ -277,17 +278,32 @@ function LogScreenContent() {
                       />
                     );
                   }}
-                  ListHeaderComponent={
-                    isSearchingApi ? (
-                      <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.sm }}>
-                        <Text style={[typography.caption, { color: colors.text.tertiary }]}>
-                          Searching Open Food Facts…
-                        </Text>
-                      </View>
-                    ) : null
-                  }
                   ListEmptyComponent={
-                    searchText.trim() && !isSearchingApi ? (
+                    isSearchingApi ? (
+                      <View style={{ paddingTop: spacing.sm }}>
+                        {[1, 2, 3, 4].map((i) => (
+                          <View
+                            key={i}
+                            style={{
+                              minHeight: 64,
+                              paddingHorizontal: spacing.lg,
+                              paddingVertical: spacing.md,
+                              borderBottomWidth: 1,
+                              borderBottomColor: colors.border.subtle,
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: spacing.md,
+                            }}
+                          >
+                            <View style={{ flex: 1, gap: spacing.sm }}>
+                              <SkeletonBox width="70%" height={14} />
+                              <SkeletonBox width="40%" height={11} />
+                            </View>
+                            <SkeletonBox width={56} height={28} borderRadius={20} />
+                          </View>
+                        ))}
+                      </View>
+                    ) : searchText.trim() ? (
                       <View style={{ padding: spacing.xl }}>
                         <EmptyState
                           title="No foods found"
@@ -337,6 +353,7 @@ function LogScreenContent() {
                   typography.h3,
                   {
                     marginTop: spacing.xs,
+                    fontFamily: fontFamily.monoMedium,
                     fontVariant: ['tabular-nums'],
                   },
                 ]}
