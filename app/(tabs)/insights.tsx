@@ -26,7 +26,7 @@ import BottomActionBar from '../../components/ui/BottomActionBar';
 import PathBadge from '../../components/PathBadge';
 import ThreadSheet from '../../components/ThreadSheet';
 import ProactiveInsightBanner from '../../components/ProactiveInsightBanner';
-import { colors, fontFamily, spacing, typography } from '../../lib/theme';
+import { colors, fontFamily, radius, spacing, typography } from '../../lib/theme';
 
 function StreamingDots() {
   const values = useRef(
@@ -78,7 +78,7 @@ function ChatBubble({ message }: { message: LocalMessage }) {
           style={{
             maxWidth: '84%',
             backgroundColor: isUser ? colors.accent.primaryMuted : colors.bg.surfaceRaised,
-            borderRadius: 20,
+            borderRadius: radius.lg,
             borderWidth: 1,
             borderColor: isUser ? colors.accent.primary : colors.border.default,
             paddingHorizontal: spacing.lg,
@@ -296,7 +296,7 @@ function InsightsScreenContent() {
                   style={{
                     paddingHorizontal: spacing.sm,
                     paddingVertical: 4,
-                    borderRadius: 8,
+                    borderRadius: radius.xs,
                     borderWidth: 1,
                     borderColor:
                       windowDays === opt.value ? colors.accent.primary : colors.border.default,

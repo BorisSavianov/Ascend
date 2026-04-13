@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   Text,
   View,
@@ -122,8 +121,15 @@ export default function Button({
         }}
       >
         {loading ? (
-          <ActivityIndicator
-            color={variantStyle.textColor}
+          <View
+            style={{
+              width: 18,
+              height: 18,
+              borderRadius: 9,
+              borderWidth: 2,
+              borderColor: variantStyle.textColor,
+              borderTopColor: 'transparent',
+            }}
           />
         ) : (
           <>

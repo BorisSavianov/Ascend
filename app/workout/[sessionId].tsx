@@ -21,7 +21,7 @@ import WorkoutHistorySheet from '../../components/WorkoutHistorySheet';
 import ConfirmationSheet from '../../components/ui/ConfirmationSheet';
 import Surface from '../../components/ui/Surface';
 import { SkeletonBox } from '../../components/ui/Skeleton';
-import { colors, fontFamily, motion, spacing, typography } from '../../lib/theme';
+import { colors, fontFamily, motion, radius, spacing, typography } from '../../lib/theme';
 import type { WorkoutDayExercise } from '../../types/workout';
 
 export default function WorkoutSessionScreen() {
@@ -230,7 +230,7 @@ export default function WorkoutSessionScreen() {
               <View
                 key={i}
                 style={{
-                  borderRadius: 20,
+                  borderRadius: radius.lg,
                   borderWidth: 1,
                   borderColor: colors.border.subtle,
                   backgroundColor: colors.bg.surface,

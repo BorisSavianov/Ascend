@@ -74,7 +74,7 @@ export default function MealLabelSelector({ value, onChange }: Props) {
           style={{
             paddingHorizontal: spacing.md,
             paddingVertical: spacing.sm,
-            borderRadius: 20,
+            borderRadius: radius.lg,
             borderWidth: 1,
             borderColor:
               showCustom || (!isPreset && value.length > 0)
