@@ -20,6 +20,7 @@ import {
   ensureFastNearEndReminderScheduled,
 } from '../lib/notifications';
 import { useAppStore } from '../store/useAppStore';
+import { clearConversationCache } from '../hooks/useConversation';
 import { colors } from '../lib/theme';
 
 // Font loading
@@ -212,6 +213,9 @@ export default function RootLayout() {
             router.replace('/(tabs)/log');
           });
         } else {
+          queryClient.clear();          // Prevent stale user-A data from reaching user B
+          void clearConversationCache();
+          useAppStore.getState().resetSettings();
           router.replace('/(auth)/login');
         }
       },

@@ -12,6 +12,28 @@ const threadKey = (id: string) => `@ai_thread_${id}`;
 const MAX_LOCAL_THREADS = 10;
 const MAX_LOCAL_MESSAGES = 30;
 
+/**
+ * Removes all conversation-related AsyncStorage entries for the current device.
+ * Call on sign-out to prevent data leakage to the next user who logs in.
+ */
+export async function clearConversationCache(): Promise<void> {
+  try {
+    const indexStr = await AsyncStorage.getItem(THREAD_INDEX_KEY);
+    const keys: string[] = [ACTIVE_THREAD_KEY, THREAD_INDEX_KEY];
+    if (indexStr) {
+      try {
+        const index: ThreadIndexEntry[] = JSON.parse(indexStr) as ThreadIndexEntry[];
+        keys.push(...index.map((e) => threadKey(e.id)));
+      } catch {
+        // corrupt index — still remove base keys below
+      }
+    }
+    await AsyncStorage.multiRemove(keys);
+  } catch {
+    // best-effort cleanup; non-fatal
+  }
+}
+
 // randomUUID() is not available in all RN/Expo Go environments
 function randomUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {

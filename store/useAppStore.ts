@@ -53,6 +53,7 @@ export type AppStore = {
   setCustomReminders: (reminders: CustomReminder[]) => void;
   setFastingTargetHours: (hours: number) => void;
   setFastingNearEndReminderEnabled: (enabled: boolean) => void;
+  resetSettings: () => void;
 };
 
 type PersistedSettings = {
@@ -119,6 +120,15 @@ export const useAppStore = create<AppStore>()(
       setFastingTargetHours: (hours: number) => set({ fastingTargetHours: hours }),
       setFastingNearEndReminderEnabled: (enabled: boolean) =>
         set({ fastingNearEndReminderEnabled: enabled }),
+      resetSettings: () =>
+        set({
+          calorieTarget: 2000,
+          macroTargets: { protein: 160, fat: 80, carbs: 100 },
+          notificationConfig: DEFAULT_NOTIFICATION_CONFIG,
+          customReminders: DEFAULT_CUSTOM_REMINDERS,
+          fastingTargetHours: 16,
+          fastingNearEndReminderEnabled: DEFAULT_FASTING_NEAR_END_REMINDER_ENABLED,
+        }),
     }),
     {
       name: '@app_settings',
