@@ -180,6 +180,7 @@ function InsightsScreenContent() {
 
   function handleSend() {
     const text = inputText.trim();
+    console.log('[handleSend] called, text:', JSON.stringify(text), 'isStreaming:', isStreaming);
     if (!text || isStreaming) return;
     setInputText('');
     void sendMessage(text);

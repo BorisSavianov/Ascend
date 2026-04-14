@@ -1,29 +1,29 @@
 // supabase/functions/fitness-agent/classifier.ts
-import { GoogleGenerativeAI } from "npm:@google/generative-ai";
+import { GoogleGenAI } from "npm:@google/genai";
 import { CLASSIFIER_PROMPT } from "./prompts.ts";
 
-const MODEL_NAME = "gemini-2.0-flash";
+const MODEL_NAME = "gemini-3-flash-preview";
 const TIMEOUT_MS = 3000;
 
 export async function classify(
-  genAI: GoogleGenerativeAI,
+  ai: GoogleGenAI,
   question: string,
 ): Promise<"simple" | "complex"> {
-  const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-
   const timeoutPromise = new Promise<"simple">((resolve) =>
     setTimeout(() => resolve("simple"), TIMEOUT_MS)
   );
 
   const classifyPromise = (async (): Promise<"simple" | "complex"> => {
     try {
-      const result = await model.generateContent({
-        contents: [{ role: "user", parts: [{ text: question }] }],
-        systemInstruction: CLASSIFIER_PROMPT,
+      const result = await ai.models.generateContent({
+        model: MODEL_NAME,
+        contents: question,
+        config: { systemInstruction: CLASSIFIER_PROMPT },
       });
-      const answer = result.response.text().trim().toLowerCase();
+      const answer = (result.text ?? "").trim().toLowerCase();
       return answer === "complex" ? "complex" : "simple";
-    } catch {
+    } catch (err) {
+      console.warn("Classifier failed, defaulting to simple. Error:", err);
       return "simple";
     }
   })();

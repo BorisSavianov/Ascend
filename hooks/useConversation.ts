@@ -12,6 +12,14 @@ const threadKey = (id: string) => `@ai_thread_${id}`;
 const MAX_LOCAL_THREADS = 10;
 const MAX_LOCAL_MESSAGES = 30;
 
+// randomUUID() is not available in all RN/Expo Go environments
+function randomUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
 export function useConversation(windowDays: number) {
   const [thread, setThread] = useState<LocalThread | null>(null);
   const [threadIndex, setThreadIndex] = useState<ThreadIndexEntry[]>([]);
@@ -36,21 +44,27 @@ export function useConversation(windowDays: number) {
   }, []);
 
   async function loadActiveThread() {
+    console.log('[loadActiveThread] start');
     try {
       const [activeId, indexStr] = await Promise.all([
         AsyncStorage.getItem(ACTIVE_THREAD_KEY),
         AsyncStorage.getItem(THREAD_INDEX_KEY),
       ]);
+      console.log('[loadActiveThread] activeId:', activeId, 'hasIndex:', !!indexStr);
       if (indexStr) setThreadIndex(JSON.parse(indexStr));
       if (activeId) {
         const stored = await AsyncStorage.getItem(threadKey(activeId));
+        console.log('[loadActiveThread] stored thread:', !!stored);
         if (stored) {
           setThread(JSON.parse(stored));
           void syncThreadFromSupabase(activeId);
           return;
         }
       }
-    } catch { /* fall through to create */ }
+    } catch (e) {
+      console.log('[loadActiveThread] ERROR:', String(e));
+    }
+    console.log('[loadActiveThread] calling createNewThread');
     await createNewThread();
   }
 
@@ -100,7 +114,10 @@ export function useConversation(windowDays: number) {
   }
 
   const createNewThread = useCallback(async () => {
-    const id = crypto.randomUUID();
+    console.log('[createNewThread] start');
+    try {
+    const id = randomUUID();
+    console.log('[createNewThread] id ok:', id.slice(0, 8));
     const now = new Date().toISOString();
     const newThread: LocalThread = { id, title: null, lastActive: now, messages: [] };
 
@@ -116,15 +133,19 @@ export function useConversation(windowDays: number) {
       return finalIndex;
     });
 
-    await Promise.all([
-      AsyncStorage.setItem(threadKey(id), JSON.stringify(newThread)),
-      AsyncStorage.setItem(ACTIVE_THREAD_KEY, id),
-    ]);
+    // Set thread state immediately — don't block on AsyncStorage writes.
+    // AsyncStorage.setItem hangs on some devices/environments; persistence is best-effort.
     setThread(newThread);
+    void AsyncStorage.setItem(threadKey(id), JSON.stringify(newThread));
+    void AsyncStorage.setItem(ACTIVE_THREAD_KEY, id);
+    console.log('[createNewThread] done, thread set:', id);
+    } catch (e) {
+      console.log('[createNewThread] THREW:', String(e));
+    }
   }, []);
 
   const loadThread = useCallback(async (threadId: string) => {
-    await AsyncStorage.setItem(ACTIVE_THREAD_KEY, threadId);
+    void AsyncStorage.setItem(ACTIVE_THREAD_KEY, threadId);
     const stored = await AsyncStorage.getItem(threadKey(threadId));
     if (stored) {
       setThread(JSON.parse(stored));
@@ -136,7 +157,7 @@ export function useConversation(windowDays: number) {
   }, []);
 
   const deleteThread = useCallback(async (threadId: string) => {
-    await AsyncStorage.removeItem(threadKey(threadId));
+    void AsyncStorage.removeItem(threadKey(threadId));
     let updatedIndex: ThreadIndexEntry[] = [];
     setThreadIndex((prev) => {
       updatedIndex = prev.filter((e) => e.id !== threadId);
@@ -157,6 +178,7 @@ export function useConversation(windowDays: number) {
   }, [createNewThread, loadThread]);
 
   const sendMessage = useCallback(async (question: string) => {
+    console.log('[sendMessage] called, thread:', thread?.id ?? 'NULL', 'isStreamingRef:', isStreamingRef.current);
     if (isStreamingRef.current || !thread) return;
     setError(null);
 
@@ -166,13 +188,13 @@ export function useConversation(windowDays: number) {
     const streamingThreadId = thread.id;
 
     const userMsg: LocalMessage = {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       role: 'user',
       content: question,
       createdAt: new Date().toISOString(),
     };
     const assistantMsg: LocalMessage = {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       role: 'assistant',
       content: '',
       createdAt: new Date().toISOString(),
@@ -184,7 +206,7 @@ export function useConversation(windowDays: number) {
       messages: [...thread.messages, userMsg, assistantMsg],
     };
     setThread(optimisticThread);
-    await AsyncStorage.setItem(threadKey(streamingThreadId), JSON.stringify(optimisticThread));
+    void AsyncStorage.setItem(threadKey(streamingThreadId), JSON.stringify(optimisticThread));
 
     isStreamingRef.current = true;
     setIsStreaming(true);

@@ -1,10 +1,10 @@
 // supabase/functions/proactive/index.ts
-import { GoogleGenerativeAI } from "npm:@google/generative-ai";
+import { GoogleGenAI } from "npm:@google/genai";
 import { createClient } from "npm:@supabase/supabase-js";
 import { PROACTIVE_PROMPT } from "../fitness-agent/prompts.ts";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
-const MODEL_NAME = "gemini-2.0-flash";
+const MODEL_NAME = "gemini-3-flash-preview";
 
 Deno.serve(async (_req: Request) => {
   const supabase = createClient(
@@ -12,8 +12,7 @@ Deno.serve(async (_req: Request) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  const genAI = new GoogleGenerativeAI(Deno.env.get("GEMINI_API_KEY")!);
-  const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+  const ai = new GoogleGenAI({ apiKey: Deno.env.get("GEMINI_API_KEY")! });
 
   // Get all users who have a push token
   const { data: tokens } = await supabase
@@ -49,10 +48,11 @@ Deno.serve(async (_req: Request) => {
     // Generate insight
     let insight: string;
     try {
-      const result = await model.generateContent(
-        `${PROACTIVE_PROMPT}\n\nData:\n${JSON.stringify(context)}`,
-      );
-      insight = result.response.text().trim();
+      const result = await ai.models.generateContent({
+        model: MODEL_NAME,
+        contents: `${PROACTIVE_PROMPT}\n\nData:\n${JSON.stringify(context)}`,
+      });
+      insight = (result.text ?? "").trim();
     } catch {
       continue;
     }

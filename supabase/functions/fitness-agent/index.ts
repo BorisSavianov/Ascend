@@ -1,26 +1,26 @@
 // supabase/functions/fitness-agent/index.ts
-import { GoogleGenerativeAI } from "npm:@google/generative-ai";
+import { GoogleGenAI } from "npm:@google/genai";
 import { createClient } from "npm:@supabase/supabase-js";
 import { classify } from "./classifier.ts";
 import { buildSystemPrompt, type UserTargets } from "./prompts.ts";
 import { simplePath } from "./simple.ts";
 import { toolLoopPath } from "./loop.ts";
 
-const genAI = new GoogleGenerativeAI(Deno.env.get("GEMINI_API_KEY")!);
+// AI initialization is moved inside the handler to ensure access to environment secrets at runtime.
 
 async function generateThreadSummary(
-  genAI: GoogleGenerativeAI,
+  ai: GoogleGenAI,
   messages: Array<{ role: string; content: string }>,
 ): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
   const transcript = messages
     .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content.slice(0, 300)}`)
     .join("\n");
   try {
-    const result = await model.generateContent(
-      `Summarise this fitness assistant conversation in 3-4 sentences, focusing on the key questions asked and insights given. Do not include greetings or sign-offs.\n\n${transcript}`,
-    );
-    return result.response.text().trim();
+    const result = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Summarise this fitness assistant conversation in 3-4 sentences, focusing on the key questions asked and insights given. Do not include greetings or sign-offs.\n\n${transcript}`,
+    });
+    return (result.text ?? "").trim();
   } catch {
     return "";
   }
@@ -40,6 +40,17 @@ Deno.serve(async (req: Request) => {
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
+
+  const apiKey = Deno.env.get("GEMINI_API_KEY");
+  if (!apiKey) {
+    console.error("Missing GEMINI_API_KEY environment variable");
+    return new Response(
+      JSON.stringify({ error: "Configuration error", detail: "GEMINI_API_KEY is not set in Supabase secrets." }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
 
   const { data: { user }, error: authError } = await supabase.auth.getUser(
     authHeader.replace("Bearer ", ""),
@@ -127,7 +138,7 @@ Deno.serve(async (req: Request) => {
     // Check if summary exists; if not, generate and store it
     let summary = existingThread?.summary ?? "";
     if (!summary && allMessages) {
-      summary = await generateThreadSummary(genAI, allMessages.slice(0, -2));
+      summary = await generateThreadSummary(ai, allMessages.slice(0, -2));
       if (summary) {
         await supabase
           .from("ai_threads")
@@ -164,7 +175,7 @@ Deno.serve(async (req: Request) => {
   const isFirstMessage = messageCount === 0;
 
   // Classify
-  const path = await classify(genAI, message);
+  const path = await classify(ai, message);
 
   // Build system prompt with user targets
   const systemPrompt = buildSystemPrompt(userTargets);
@@ -174,7 +185,7 @@ Deno.serve(async (req: Request) => {
   try {
     if (path === "complex") {
       contentStream = await toolLoopPath({
-        genAI,
+        ai,
         supabase,
         userId: user.id,
         question: message,
@@ -183,7 +194,7 @@ Deno.serve(async (req: Request) => {
       });
     } else {
       contentStream = await simplePath({
-        genAI,
+        ai,
         supabase,
         userId: user.id,
         question: message,
@@ -194,8 +205,13 @@ Deno.serve(async (req: Request) => {
       });
     }
   } catch (err) {
+    console.error("Agent Execution Error:", err);
     return new Response(
-      JSON.stringify({ error: "Agent error", detail: String(err) }),
+      JSON.stringify({
+        error: "Agent error",
+        detail: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined
+      }),
       { status: 503, headers: { "Content-Type": "application/json" } },
     );
   }

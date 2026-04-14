@@ -1,9 +1,9 @@
 // supabase/functions/gemini/index.ts
-import { GoogleGenerativeAI } from "npm:@google/generative-ai";
+import { GoogleGenAI } from "npm:@google/genai";
 import { createClient } from "npm:@supabase/supabase-js";
 
-const genAI = new GoogleGenerativeAI(Deno.env.get("GEMINI_API_KEY")!);
-const MODEL_NAME = "gemini-2.0-flash";
+const ai = new GoogleGenAI({ apiKey: Deno.env.get("GEMINI_API_KEY")! });
+const MODEL_NAME = "gemini-3-flash-preview";
 
 const SYSTEM_INSTRUCTION = `
 You are a personal nutrition analyst for a single user.
@@ -27,13 +27,17 @@ ANALYTICAL GUIDELINES:
 `.trim();
 
 async function callWithRetry(
-  model: ReturnType<GoogleGenerativeAI["getGenerativeModel"]>,
+  ai: GoogleGenAI,
   prompt: string,
   maxRetries = 3
 ) {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      return await model.generateContentStream(prompt);
+      return await ai.models.generateContentStream({
+        model: MODEL_NAME,
+        contents: prompt,
+        config: { systemInstruction: SYSTEM_INSTRUCTION },
+      });
     } catch (err: unknown) {
       const status = (err as { status?: number }).status;
       if (status === 429 && attempt < maxRetries - 1) {
@@ -120,16 +124,11 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  const model = genAI.getGenerativeModel({
-    model: MODEL_NAME,
-    systemInstruction: SYSTEM_INSTRUCTION,
-  });
-
   const userMessage = `Here is my nutrition log data (JSON):\n${contextJson}\n\nMy question: ${question}`;
 
   let streamResult;
   try {
-    streamResult = await callWithRetry(model, userMessage);
+    streamResult = await callWithRetry(ai, userMessage);
   } catch (err) {
     return new Response(
       JSON.stringify({ error: "Gemini API error", detail: String(err) }),
@@ -146,24 +145,22 @@ Deno.serve(async (req: Request) => {
     let totalTokens = 0;
 
     try {
-      for await (const chunk of streamResult.stream) {
-        const text = chunk.text();
+      for await (const chunk of streamResult) {
+        const text = chunk.text ?? "";
         fullText += text;
         await writer.write(encoder.encode(text));
+        if (chunk.usageMetadata?.totalTokenCount) {
+          totalTokens = chunk.usageMetadata.totalTokenCount;
+        }
       }
 
-      try {
-        const finalResponse = await streamResult.response;
-        totalTokens = finalResponse.usageMetadata?.totalTokenCount ?? 0;
-      } catch { /* usage metadata is best-effort */ }
-
       await supabase.from("ai_insights_cache").upsert({
-        user_id:      user.id,
+        user_id: user.id,
         context_hash: hash,
         question,
-        response:     fullText,
-        model:        MODEL_NAME,
-        tokens_used:  totalTokens,
+        response: fullText,
+        model: MODEL_NAME,
+        tokens_used: totalTokens,
       });
 
       await writer.close();
