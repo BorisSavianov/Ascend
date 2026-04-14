@@ -126,7 +126,10 @@ export default function CalorieRing({ consumed, target, size = 200 }: Props) {
       <View
         style={{
           position: 'absolute',
-          inset: 0,
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
           alignItems: 'center',
           justifyContent: 'center',
           paddingHorizontal: spacing.xl,
