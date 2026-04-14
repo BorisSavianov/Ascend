@@ -114,7 +114,6 @@ function ProfileScreenContent() {
 
 function BodyMetricsSection() {
   const [weightText, setWeightText] = useState('');
-  const [fatText, setFatText] = useState('');
   const [validationError, setValidationError] = useState('');
 
   const { data: metrics } = useBodyMetrics();
@@ -131,20 +130,18 @@ function BodyMetricsSection() {
 
   function handleLog() {
     const weight = weightText.trim() ? parseFloat(weightText) : null;
-    const fat = fatText.trim() ? parseFloat(fatText) : null;
 
-    if (weight == null && fat == null) {
-      setValidationError('Enter at least one value.');
+    if (weight == null) {
+      setValidationError('Enter your weight to log.');
       return;
     }
 
     setValidationError('');
     logMutation.mutate(
-      { weight_kg: weight, body_fat_pct: fat },
+      { weight_kg: weight },
       {
         onSuccess: () => {
           setWeightText('');
-          setFatText('');
         },
         onError: (err) => {
           setValidationError(err.message);
@@ -157,7 +154,7 @@ function BodyMetricsSection() {
     <Surface elevated>
       <SectionHeading
         title="Body metrics"
-        subtitle="Log weight and body fat, then keep an eye on the short-term trend."
+        subtitle="Log your weight and track the short-term trend."
       />
       <View style={{ gap: spacing.md }}>
         <TextField
@@ -167,18 +164,10 @@ function BodyMetricsSection() {
           placeholder="0.0"
           unit="kg"
           keyboardType="decimal-pad"
-        />
-        <TextField
-          label="Body fat"
-          value={fatText}
-          onChangeText={setFatText}
-          placeholder="0.0"
-          unit="%"
-          keyboardType="decimal-pad"
           error={validationError || null}
         />
         <Button
-          label="Log metrics"
+          label="Log weight"
           onPress={handleLog}
           loading={logMutation.isPending}
         />

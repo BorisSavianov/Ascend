@@ -1,0 +1,11 @@
+[functions.export]
+verify_jwt = false
+
+[functions.gemini]
+verify_jwt = false
+
+[functions.fitness-agent]
+verify_jwt = false
+
+[functions.proactive]
+verify_jwt = false

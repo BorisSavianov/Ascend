@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { type BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Tabs } from 'expo-router';
 import React, { useEffect } from 'react';
-import { Pressable, View, useWindowDimensions } from 'react-native';
+import { Keyboard, Platform, Pressable, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useAnimatedStyle,
@@ -49,23 +49,45 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
     transform: [{ translateX: indicatorX.value }],
   }));
 
+  // Slide the tab bar off screen when the keyboard is visible
+  const tabSlideY = useSharedValue(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvent, () => {
+      tabSlideY.value = withTiming(TAB_BAR_H + insets.bottom + BOTTOM_LIFT + 20, { duration: 180 });
+    });
+    const hide = Keyboard.addListener(hideEvent, () => {
+      tabSlideY.value = withTiming(0, { duration: 200 });
+    });
+    return () => { show.remove(); hide.remove(); };
+  }, [tabSlideY, insets.bottom]);
+
+  const tabBarAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: tabSlideY.value }],
+  }));
+
   return (
-    <View
-      style={{
-        position:  'absolute',
-        left:       H_MARGIN,
-        right:      H_MARGIN,
-        bottom:     insets.bottom + BOTTOM_LIFT,
-        height:     TAB_BAR_H,
-        borderRadius: radius.xl,
-        backgroundColor: colors.bg.surfaceRaised,
-        borderWidth: 1,
-        borderColor: colors.border.default,
-        flexDirection: 'row',
-        alignItems: 'center',
-        overflow: 'hidden',
-        ...shadows.floating,
-      }}
+    <Animated.View
+      style={[
+        {
+          position:  'absolute',
+          left:       H_MARGIN,
+          right:      H_MARGIN,
+          bottom:     insets.bottom + BOTTOM_LIFT,
+          height:     TAB_BAR_H,
+          borderRadius: radius.xl,
+          backgroundColor: colors.bg.surfaceRaised,
+          borderWidth: 1,
+          borderColor: colors.border.default,
+          flexDirection: 'row',
+          alignItems: 'center',
+          overflow: 'hidden',
+          ...shadows.floating,
+        },
+        tabBarAnimatedStyle,
+      ]}
     >
       {/* Animated pill indicator — absolute, slides behind icons */}
       <Animated.View
@@ -116,7 +138,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
           />
         );
       })}
-    </View>
+    </Animated.View>
   );
 }
 

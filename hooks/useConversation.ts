@@ -205,6 +205,7 @@ export function useConversation(windowDays: number) {
       });
     }
 
+    try {
     await apiSendMessage({
       threadId: streamingThreadId,
       message: question,
@@ -259,6 +260,26 @@ export function useConversation(windowDays: number) {
         setIsStreaming(false);
       },
     });
+    } catch (err) {
+      // Safety net: if apiSendMessage throws rather than calling onError,
+      // reset streaming state so future sends are not permanently blocked.
+      if (rafHandleRef.current !== null) {
+        cancelAnimationFrame(rafHandleRef.current);
+        rafHandleRef.current = null;
+      }
+      pendingChunkRef.current = '';
+      setError(err instanceof Error ? err.message : 'Failed to send message');
+      setThread((prev) => {
+        if (!prev) return prev;
+        const msgs = [...prev.messages];
+        if (msgs[msgs.length - 1]?.role === 'assistant') msgs.pop();
+        const next = { ...prev, messages: msgs };
+        void AsyncStorage.setItem(threadKey(streamingThreadId), JSON.stringify(next));
+        return next;
+      });
+      isStreamingRef.current = false;
+      setIsStreaming(false);
+    }
   }, [thread, calorieTarget, macroTargets, fastingTargetHours]);
 
   async function syncThreadTitleFromSupabase(threadId: string) {
