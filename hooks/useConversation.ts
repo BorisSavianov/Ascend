@@ -80,6 +80,7 @@ export function useConversation(windowDays: number) {
         if (stored) {
           setThread(JSON.parse(stored));
           void syncThreadFromSupabase(activeId);
+          void syncThreadIndexFromSupabase();
           return;
         }
       }
@@ -88,6 +89,7 @@ export function useConversation(windowDays: number) {
     }
     console.log('[loadActiveThread] calling createNewThread');
     await createNewThread();
+    void syncThreadIndexFromSupabase();
   }
 
   async function syncThreadFromSupabase(threadId: string) {
@@ -122,7 +124,27 @@ export function useConversation(windowDays: number) {
       await AsyncStorage.setItem(threadKey(threadId), JSON.stringify(synced));
       setThread(synced);
       updateThreadIndex({ id: synced.id, title: synced.title, lastActive: synced.lastActive });
-    } catch { /* background sync failure — local state already displayed */ }
+    } catch (e) {
+      console.warn('[syncThreadFromSupabase] sync failed for thread', threadId, String(e));
+    }
+  }
+
+  async function syncThreadIndexFromSupabase() {
+    try {
+      const { data: threads } = await supabase
+        .from('ai_threads')
+        .select('id, title, last_active')
+        .order('last_active', { ascending: false })
+        .limit(MAX_LOCAL_THREADS);
+      if (!threads?.length) return;
+      const entries: ThreadIndexEntry[] = threads.map((t) => ({
+        id: t.id,
+        title: t.title,
+        lastActive: t.last_active,
+      }));
+      setThreadIndex(entries);
+      await AsyncStorage.setItem(THREAD_INDEX_KEY, JSON.stringify(entries));
+    } catch { /* background sync — local index already displayed */ }
   }
 
   // Uses functional setState to avoid AsyncStorage read-modify-write races
