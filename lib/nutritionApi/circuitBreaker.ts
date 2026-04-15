@@ -21,7 +21,7 @@ export class CircuitBreaker {
     private readonly threshold = 3,
     /** Milliseconds to wait before transitioning from OPEN → HALF-OPEN. */
     private readonly resetMs = 30_000,
-  ) {}
+  ) { }
 
   /** Returns true if the circuit allows a request attempt. */
   canAttempt(): boolean {
@@ -71,3 +71,6 @@ export class CircuitBreaker {
 
 /** Shared instance for the OFF API. */
 export const offCircuitBreaker = new CircuitBreaker(3, 30_000);
+
+export const usdaCircuitBreaker = new CircuitBreaker();
+export const edamamCircuitBreaker = new CircuitBreaker();

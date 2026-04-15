@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { type BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Tabs } from 'expo-router';
 import React, { useEffect } from 'react';
-import { Keyboard, Platform, Pressable, View, useWindowDimensions } from 'react-native';
+import { Keyboard, Platform, Pressable, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useAnimatedStyle,

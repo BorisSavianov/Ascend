@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { openFoodFactsAPI, searchCache, offCircuitBreaker } from '../lib/nutritionApi';
+import { foodAggregator, searchCache } from '../lib/nutritionApi';
 import type { NutritionSearchResult } from '../lib/nutritionApi';
 import { getPersistentCache, setPersistentCache } from '../lib/nutritionApi/persistentSearchCache';
 import { logger } from '../lib/logger';
@@ -140,15 +140,7 @@ export function useFoodSearch(query: string): UseFoodSearchResult {
     if (cached) {
       setApiResults(cached);
       setIsSearchingApi(false);
-      logger.metric('off_cache_hit', 1, { query: debouncedApiQuery });
-      return;
-    }
-
-    // Check circuit breaker — skip API if it's tripped
-    if (!offCircuitBreaker.canAttempt()) {
-      logger.warn('OFF circuit breaker open — skipping API search');
-      setApiResults([]);
-      setIsSearchingApi(false);
+      logger.metric('search_cache_hit', 1, { query: debouncedApiQuery });
       return;
     }
 
@@ -164,15 +156,14 @@ export function useFoodSearch(query: string): UseFoodSearchResult {
           setApiResults(persisted);
           searchCache.set(debouncedApiQuery, persisted);
           setIsSearchingApi(false);
-          logger.metric('off_persistent_cache_hit', 1, { query: debouncedApiQuery });
+          logger.metric('search_persistent_cache_hit', 1, { query: debouncedApiQuery });
           return;
         }
 
-        const results = await openFoodFactsAPI.search(debouncedApiQuery, controller.signal);
+        const results = await foodAggregator.search(debouncedApiQuery, controller.signal);
         if (!controller.signal.aborted) {
           setApiResults(results);
           searchCache.set(debouncedApiQuery, results);
-          offCircuitBreaker.recordSuccess();
           // Persist for future sessions — fire-and-forget
           void setPersistentCache(debouncedApiQuery, results);
         }
@@ -180,10 +171,6 @@ export function useFoodSearch(query: string): UseFoodSearchResult {
         if (!controller.signal.aborted) {
           logger.warn('API food search error:', String(err));
           setApiResults([]);
-          // Only count non-abort errors as circuit breaker failures
-          if ((err as Error).name !== 'AbortError') {
-            offCircuitBreaker.recordFailure();
-          }
         }
       } finally {
         if (!controller.signal.aborted) setIsSearchingApi(false);
