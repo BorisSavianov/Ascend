@@ -81,53 +81,63 @@ CREATE POLICY "user_owns_row" ON day_assignments
 CREATE OR REPLACE FUNCTION seed_workout_presets(p_user_id UUID)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
-  v_push UUID; v_pull UUID; v_legs UUID; v_shoulders UUID;
+  v_full_body UUID; v_shoulders_arms UUID; v_upper_body UUID; v_legs_isolation UUID;
 BEGIN
-  INSERT INTO workout_presets (user_id, name) VALUES (p_user_id, 'Push Day')      RETURNING id INTO v_push;
-  INSERT INTO workout_presets (user_id, name) VALUES (p_user_id, 'Pull Day')      RETURNING id INTO v_pull;
-  INSERT INTO workout_presets (user_id, name) VALUES (p_user_id, 'Legs & Arms')   RETURNING id INTO v_legs;
-  INSERT INTO workout_presets (user_id, name) VALUES (p_user_id, 'Shoulders Day') RETURNING id INTO v_shoulders;
+  INSERT INTO workout_presets (user_id, name) VALUES (p_user_id, 'Full Body Machine')   RETURNING id INTO v_full_body;
+  INSERT INTO workout_presets (user_id, name) VALUES (p_user_id, 'Shoulders & Arms')     RETURNING id INTO v_shoulders_arms;
+  INSERT INTO workout_presets (user_id, name) VALUES (p_user_id, 'Upper Body Mix')      RETURNING id INTO v_upper_body;
+  INSERT INTO workout_presets (user_id, name) VALUES (p_user_id, 'Legs & Isolation')    RETURNING id INTO v_legs_isolation;
 
-  -- Push Day: Incline Chest Press, Seated Chest Fly, Overhead Triceps Ext, Tricep Pushdown
+  -- Wednesday: Full Body Machine
   INSERT INTO workout_preset_exercises (preset_id, exercise_template_id, sort_order, default_sets, default_reps_min, default_reps_max)
   VALUES
-    (v_push, '00000000-0000-0000-0001-000000000002', 1, 2, 10, 12),
-    (v_push, '00000000-0000-0000-0001-000000000005', 2, 2, 12, 15),
-    (v_push, '00000000-0000-0000-0001-000000000008', 3, 2, 10, 12),
-    (v_push, '00000000-0000-0000-0001-000000000011', 4, 2, 10, 12);
+    (v_full_body, '00000000-0000-0000-0001-000000000001', 1, 2, 10, 12), -- Lat Pulldown (Machine)
+    (v_full_body, '00000000-0000-0000-0001-000000000002', 2, 2,  8, 12), -- Incline Chest Press (Machine)
+    (v_full_body, '00000000-0000-0000-0001-000000000003', 3, 2, 12, 15), -- Leg Extension (Machine)
+    (v_full_body, '00000000-0000-0000-0001-000000000004', 4, 2, 10, 12), -- Seated Row (Machine)
+    (v_full_body, '00000000-0000-0000-0001-000000000005', 5, 2, 10, 12), -- Seated Chest Fly (Machine)
+    (v_full_body, '00000000-0000-0000-0001-000000000006', 6, 2, 12, 15); -- Lying Leg Curl (Machine)
 
-  -- Pull Day: Lat Pulldown, Seated Row, Preacher Curl, Hammer Curl
+  -- Thursday: Shoulders & Arms
   INSERT INTO workout_preset_exercises (preset_id, exercise_template_id, sort_order, default_sets, default_reps_min, default_reps_max)
   VALUES
-    (v_pull, '00000000-0000-0000-0001-000000000001', 1, 2, 10, 12),
-    (v_pull, '00000000-0000-0000-0001-000000000004', 2, 2, 10, 12),
-    (v_pull, '00000000-0000-0000-0001-000000000009', 3, 2, 10, 12),
-    (v_pull, '00000000-0000-0000-0001-000000000012', 4, 2, 10, 12);
+    (v_shoulders_arms, '00000000-0000-0000-0001-000000000007', 1, 2,  8, 12), -- Shoulder Press
+    (v_shoulders_arms, '00000000-0000-0000-0001-000000000008', 2, 2, 10, 12), -- Overhead Triceps Extension
+    (v_shoulders_arms, '00000000-0000-0000-0001-000000000009', 3, 2, 10, 12), -- Preacher Curl (Machine)
+    (v_shoulders_arms, '00000000-0000-0000-0001-000000000010', 4, 2, 10, 12), -- Lateral Raise (Cable)
+    (v_shoulders_arms, '00000000-0000-0000-0001-000000000011', 5, 2, 10, 12), -- Tricep Pushdown
+    (v_shoulders_arms, '00000000-0000-0000-0001-000000000012', 6, 2, 10, 12); -- Hammer Curl
 
-  -- Legs & Arms: Hack Squat, Leg Extension, Lying Leg Curl, Bayesian Curl
+  -- Saturday: Upper Body Mix
   INSERT INTO workout_preset_exercises (preset_id, exercise_template_id, sort_order, default_sets, default_reps_min, default_reps_max)
   VALUES
-    (v_legs, '00000000-0000-0000-0001-000000000013', 1, 2,  8, 12),
-    (v_legs, '00000000-0000-0000-0001-000000000003', 2, 2, 12, 15),
-    (v_legs, '00000000-0000-0000-0001-000000000006', 3, 2, 10, 12),
-    (v_legs, '00000000-0000-0000-0001-000000000014', 4, 2, 10, 12);
+    (v_upper_body, '00000000-0000-0000-0001-000000000007', 1, 2,  8, 12), -- Shoulder Press
+    (v_upper_body, '00000000-0000-0000-0001-000000000002', 2, 2, 10, 12), -- Incline Chest Press (Machine)
+    (v_upper_body, '00000000-0000-0000-0001-000000000001', 3, 2, 10, 12), -- Lat Pulldown (Machine)
+    (v_upper_body, '00000000-0000-0000-0001-000000000010', 4, 2, 12, 15), -- Lateral Raise (Cable)
+    (v_upper_body, '00000000-0000-0000-0001-000000000015', 5, 2, 12, 15), -- Seated Reverse Fly
+    (v_upper_body, '00000000-0000-0000-0001-000000000005', 6, 2, 10, 12); -- Seated Chest Fly (Machine)
 
-  -- Shoulders Day: Shoulder Press, Lateral Raise, Seated Reverse Fly
+  -- Sunday: Legs & Isolation
   INSERT INTO workout_preset_exercises (preset_id, exercise_template_id, sort_order, default_sets, default_reps_min, default_reps_max)
   VALUES
-    (v_shoulders, '00000000-0000-0000-0001-000000000007', 1, 2,  8, 12),
-    (v_shoulders, '00000000-0000-0000-0001-000000000010', 2, 2, 10, 12),
-    (v_shoulders, '00000000-0000-0000-0001-000000000015', 3, 2, 12, 15);
+    (v_legs_isolation, '00000000-0000-0000-0001-000000000013', 1, 2,  8, 12), -- Hack Squat
+    (v_legs_isolation, '00000000-0000-0000-0001-000000000008', 2, 2, 10, 12), -- Overhead Triceps Extension
+    (v_legs_isolation, '00000000-0000-0000-0001-000000000014', 3, 2, 10, 12), -- Bayesian Curl
+    (v_legs_isolation, '00000000-0000-0000-0001-000000000003', 4, 2, 12, 15), -- Leg Extension (Machine)
+    (v_legs_isolation, '00000000-0000-0000-0001-000000000011', 5, 2, 10, 12), -- Tricep Pushdown
+    (v_legs_isolation, '00000000-0000-0000-0001-000000000009', 6, 2, 10, 10); -- Preacher Curl (Machine)
 
-  -- Day assignments: Wed=Pull, Thu=Shoulders, Sat=Push, Sun=Legs, rest=NULL
+  -- Day assignments: Mon/Tue/Fri=Rest, Wed/Thu/Sat/Sun=Training
+  -- (0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat)
   INSERT INTO day_assignments (user_id, day_of_week, preset_id) VALUES
-    (p_user_id, 0, v_legs),
+    (p_user_id, 0, v_legs_isolation),
     (p_user_id, 1, NULL),
     (p_user_id, 2, NULL),
-    (p_user_id, 3, v_pull),
-    (p_user_id, 4, v_shoulders),
+    (p_user_id, 3, v_full_body),
+    (p_user_id, 4, v_shoulders_arms),
     (p_user_id, 5, NULL),
-    (p_user_id, 6, v_push);
+    (p_user_id, 6, v_upper_body);
 END;
 $$;
 
