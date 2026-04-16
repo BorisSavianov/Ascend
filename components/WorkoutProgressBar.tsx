@@ -12,25 +12,15 @@ import { colors, fontFamily, motion, spacing, typography } from '../lib/theme';
 type Props = {
   completedSets: number;
   totalSets: number;
-  elapsedSeconds: number;
+  elapsedLabel: string;
   onFinish: () => void;
   isFinishing: boolean;
 };
 
-function formatTime(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  if (h > 0) {
-    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  }
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
-
 export default function WorkoutProgressBar({
   completedSets,
   totalSets,
-  elapsedSeconds,
+  elapsedLabel,
   onFinish,
   isFinishing,
 }: Props) {
@@ -111,7 +101,7 @@ export default function WorkoutProgressBar({
             },
           ]}
         >
-          {formatTime(elapsedSeconds)}
+          {elapsedLabel}
         </Text>
       </View>
 

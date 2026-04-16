@@ -15,7 +15,7 @@ export function useFinishWorkoutSession() {
     mutationFn: async (sessionId: string) => {
       const { error } = await supabase
         .from('workout_sessions')
-        .update({ ended_at: new Date().toISOString() })
+        .update({ ended_at: new Date().toISOString(), status: 'completed' })
         .eq('id', sessionId);
 
       if (error) throw new Error(error.message);

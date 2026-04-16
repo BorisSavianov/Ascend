@@ -8,6 +8,7 @@ type LogExerciseVariables = {
   durationMin: number;
   caloriesBurned: number;
   loggedAt?: Date;
+  workoutSessionId?: string | null;
 };
 
 export function useLogExercise() {
@@ -25,6 +26,7 @@ export function useLogExercise() {
           duration_min: variables.durationMin,
           calories_burned: variables.caloriesBurned,
           logged_at: loggedAt.toISOString(),
+          workout_session_id: variables.workoutSessionId ?? null,
         })
         .select('id')
         .single();

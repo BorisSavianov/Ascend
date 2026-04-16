@@ -8,23 +8,27 @@ import { EXERCISE_IMAGES, MUSCLE_GROUP_ICONS } from '../constants/exerciseImages
 import { useWorkoutStore } from '../store/useWorkoutStore';
 import { useLogSet } from '../hooks/useLogSet';
 import WorkoutSetRow from './WorkoutSetRow';
-import type { LoggedExercise, WorkoutDayExercise, PreviousExercisePerformance } from '../types/workout';
+import type { LoggedExercise, PreviousExercisePerformance } from '../types/workout';
 
 type Props = {
   loggedExercise: LoggedExercise;
-  workoutDayExercise: WorkoutDayExercise;
   previousPerformance: PreviousExercisePerformance | null;
+  onAddSet: () => void;
+  onRemoveSet: (setId: string, setIndex: number) => void;
+  onRemoveExercise: () => void;
 };
 
 export default function WorkoutExerciseCard({
   loggedExercise,
-  workoutDayExercise,
   previousPerformance,
+  onAddSet,
+  onRemoveSet,
+  onRemoveExercise,
 }: Props) {
   const { exercise_template: template, logged_sets: sets } = loggedExercise;
-  const targetSets = workoutDayExercise.target_sets ?? template.target_sets;
-  const targetRepsMin = workoutDayExercise.target_reps_min ?? template.target_reps_min;
-  const targetRepsMax = workoutDayExercise.target_reps_max ?? template.target_reps_max;
+  const targetSets = sets.length > 0 ? sets.length : template.target_sets;
+  const targetRepsMin = template.target_reps_min;
+  const targetRepsMax = template.target_reps_max;
 
   const { setInputs, collapsedExerciseIds, initExerciseSets, updateSetInput, markSetCompleted, toggleExerciseCollapsed } =
     useWorkoutStore();
@@ -153,7 +157,7 @@ export default function WorkoutExerciseCard({
           </View>
         </View>
 
-        {/* Set completion badge + collapse icon */}
+        {/* Set completion badge + collapse icon + remove exercise */}
         <View style={{ alignItems: 'flex-end', gap: 4 }}>
           <Text
             style={[
@@ -167,11 +171,20 @@ export default function WorkoutExerciseCard({
           >
             {completedCount}/{targetSets}
           </Text>
-          <Ionicons
-            name={isCollapsed ? 'chevron-down' : 'chevron-up'}
-            size={14}
-            color={colors.text.tertiary}
-          />
+          <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
+            <Pressable
+              onPress={onRemoveExercise}
+              hitSlop={8}
+              accessibilityLabel={`Remove ${template.name}`}
+            >
+              <Ionicons name="trash-outline" size={14} color={colors.text.disabled} />
+            </Pressable>
+            <Ionicons
+              name={isCollapsed ? 'chevron-down' : 'chevron-up'}
+              size={14}
+              color={colors.text.tertiary}
+            />
+          </View>
         </View>
       </Pressable>
 
@@ -209,6 +222,8 @@ export default function WorkoutExerciseCard({
             <Text style={[typography.caption, { width: 44, textAlign: 'center' }]}>
               Done
             </Text>
+            {/* Spacer for remove icon column */}
+            <View style={{ width: 24 }} />
           </View>
 
           {/* Set rows */}
@@ -223,33 +238,77 @@ export default function WorkoutExerciseCard({
             const prevSet = previousPerformance?.sets[i];
 
             return (
-              <WorkoutSetRow
+              <View
                 key={set.id}
-                setNumber={set.set_number}
-                targetRepsMin={targetRepsMin}
-                targetRepsMax={targetRepsMax}
-                previousWeightKg={prevSet?.weight_kg ?? null}
-                previousReps={prevSet?.reps ?? null}
-                inputState={input}
-                onWeightChange={(v) => updateSetInput(leId, i, 'weight', v)}
-                onRepsChange={(v) => updateSetInput(leId, i, 'reps', v)}
-                onToggleComplete={() => {
-                  const newCompleted = !input.isCompleted;
-                  logSet({
-                    setId: set.id,
-                    loggedExerciseId: leId,
-                    setNumber: set.set_number,
-                    weightKg: input.weight ? parseFloat(input.weight) : null,
-                    reps: input.reps ? parseInt(input.reps, 10) : null,
-                    rpe: null,
-                    isCompleted: newCompleted,
-                  });
-                }}
-              />
+                style={{ flexDirection: 'row', alignItems: 'center' }}
+              >
+                <View style={{ flex: 1 }}>
+                  <WorkoutSetRow
+                    setNumber={set.set_number}
+                    targetRepsMin={targetRepsMin}
+                    targetRepsMax={targetRepsMax}
+                    previousWeightKg={prevSet?.weight_kg ?? null}
+                    previousReps={prevSet?.reps ?? null}
+                    inputState={input}
+                    onWeightChange={(v) => updateSetInput(leId, i, 'weight', v)}
+                    onRepsChange={(v) => updateSetInput(leId, i, 'reps', v)}
+                    onToggleComplete={() => {
+                      const newCompleted = !input.isCompleted;
+                      logSet({
+                        setId: set.id,
+                        loggedExerciseId: leId,
+                        setNumber: set.set_number,
+                        weightKg: input.weight ? parseFloat(input.weight) : null,
+                        reps: input.reps ? parseInt(input.reps, 10) : null,
+                        rpe: null,
+                        isCompleted: newCompleted,
+                      });
+                    }}
+                  />
+                </View>
+                {/* Remove set button */}
+                {sets.length > 1 ? (
+                  <Pressable
+                    onPress={() => onRemoveSet(set.id, i)}
+                    hitSlop={8}
+                    style={{
+                      width: 24,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingRight: spacing.md,
+                    }}
+                    accessibilityLabel={`Remove set ${set.set_number}`}
+                  >
+                    <Ionicons name="remove-circle-outline" size={16} color={colors.text.disabled} />
+                  </Pressable>
+                ) : (
+                  <View style={{ width: 24 }} />
+                )}
+              </View>
             );
           })}
 
-          <View style={{ height: spacing.sm }} />
+          {/* Add set button */}
+          <Pressable
+            onPress={onAddSet}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: spacing.sm,
+              paddingVertical: spacing.md,
+              marginHorizontal: spacing.lg,
+              marginBottom: spacing.sm,
+              borderRadius: radius.sm,
+              borderWidth: 1,
+              borderColor: colors.border.subtle,
+              borderStyle: 'dashed',
+            }}
+            accessibilityLabel="Add set"
+          >
+            <Ionicons name="add-circle-outline" size={16} color={colors.text.tertiary} />
+            <Text style={[typography.caption, { color: colors.text.tertiary }]}>Add set</Text>
+          </Pressable>
         </Animated.View>
       ) : null}
     </LinearGradient>

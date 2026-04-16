@@ -1,6 +1,4 @@
 // Workout module types
-// These supplement types/database.ts until Supabase types are regenerated
-// after migrations 009 and 010 are applied.
 
 export type ExerciseTemplate = {
   id: string;
@@ -14,40 +12,58 @@ export type ExerciseTemplate = {
   created_at: string;
 };
 
-export type WorkoutProgram = {
+export type WorkoutPreset = {
   id: string;
   user_id: string;
   name: string;
-  is_active: boolean;
   created_at: string;
+  updated_at: string;
 };
 
-export type WorkoutDay = {
+export type WorkoutPresetExercise = {
   id: string;
-  program_id: string;
-  day_of_week: number; // 0=Sun, 1=Mon, ..., 6=Sat (JS getDay())
-  name: string;
-  is_rest_day: boolean;
-};
-
-export type WorkoutDayExercise = {
-  id: string;
-  workout_day_id: string;
+  preset_id: string;
   exercise_template_id: string;
   sort_order: number;
-  target_sets: number | null;
-  target_reps_min: number | null;
-  target_reps_max: number | null;
+  default_sets: number;
+  default_reps_min: number;
+  default_reps_max: number;
+  default_weight_kg: number | null;
   exercise_template: ExerciseTemplate;
+};
+
+export type WorkoutPresetWithExercises = WorkoutPreset & {
+  exercises: WorkoutPresetExercise[];
+};
+
+export type DayAssignment = {
+  user_id: string;
+  day_of_week: number; // 0=Sun, 1=Mon, ..., 6=Sat
+  preset_id: string | null;
+  preset?: WorkoutPreset | null;
+};
+
+export type SessionSnapshot = {
+  preset_name: string;
+  exercises: Array<{
+    exercise_template_id: string;
+    name: string;
+    default_sets: number;
+    default_reps_min: number;
+    default_reps_max: number;
+    default_weight_kg: number | null;
+  }>;
 };
 
 export type WorkoutSession = {
   id: string;
   user_id: string;
-  workout_day_id: string;
+  preset_id: string | null;
   date: string; // 'YYYY-MM-DD'
   started_at: string;
   ended_at: string | null;
+  status: 'active' | 'paused' | 'completed';
+  session_snapshot: SessionSnapshot | null;
   notes: string | null;
   created_at: string;
 };
@@ -75,13 +91,8 @@ export type LoggedSet = {
 
 // Composed types returned by hooks
 
-export type WorkoutDayWithExercises = WorkoutDay & {
-  exercises: WorkoutDayExercise[];
-};
-
 export type WorkoutSessionWithExercises = WorkoutSession & {
   logged_exercises: LoggedExercise[];
-  workout_day?: WorkoutDay;
 };
 
 export type PreviousSetPerformance = {
