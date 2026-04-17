@@ -12,6 +12,7 @@ import { useWorkoutVolume } from '../../../hooks/useWorkoutVolume';
 import WorkoutSessionDetailSheet from '../../../components/WorkoutSessionDetailSheet';
 import { SkeletonBox } from '../../../components/ui/Skeleton';
 import Surface from '../../../components/ui/Surface';
+import SegmentedControl from '../../../components/ui/SegmentedControl';
 import Chip from '../../../components/ui/Chip';
 import type { WorkoutSessionWithExercises } from '../../../types/workout';
 import { colors, radius, spacing, typography } from '../../../lib/theme';
@@ -99,6 +100,21 @@ export default function WorkoutHistoryScreen() {
           <Ionicons name="chevron-back" size={22} color={colors.text.primary} />
         </Pressable>
         <Text style={[typography.h2, { flex: 1 }]}>History</Text>
+      </View>
+
+      <View style={{ paddingHorizontal: spacing.xl, paddingVertical: spacing.md }}>
+        <SegmentedControl
+          options={[
+            { label: 'Today', value: 'today' },
+            { label: 'History', value: 'history' },
+            { label: 'Templates', value: 'templates' },
+          ]}
+          value="history"
+          onChange={(v) => {
+            if (v === 'today') router.push('/(tabs)/move');
+            if (v === 'templates') router.push('/move/templates');
+          }}
+        />
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 80 }}>

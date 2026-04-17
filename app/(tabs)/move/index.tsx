@@ -238,10 +238,12 @@ function MoveScreenContent() {
           options={[
             { label: 'Today', value: 'today' },
             { label: 'History', value: 'history' },
+            { label: 'Templates', value: 'templates' },
           ]}
           value="today"
           onChange={(v) => {
             if (v === 'history') router.push('/move/history');
+            if (v === 'templates') router.push('/move/templates');
           }}
         />
 
@@ -269,7 +271,14 @@ function MoveScreenContent() {
               <Surface>
                 <Text style={typography.h3}>Set up your week</Text>
                 <Text style={[typography.bodySm, { marginTop: spacing.sm, marginBottom: spacing.lg }]}>
-                  Get started with a default Push / Pull / Legs programme, or create your own from the presets manager.
+                  Get started with a default Push / Pull / Legs programme, or{' '}
+                  <Text
+                    style={[typography.bodySm, { color: colors.accent.primary }]}
+                    onPress={() => router.push('/move/templates')}
+                  >
+                    manage your templates
+                  </Text>
+                  .
                 </Text>
                 <Button
                   label="Set up default programme"
