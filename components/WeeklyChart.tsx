@@ -39,7 +39,16 @@ export default function WeeklyChart({ data }: Props) {
     );
   }
 
-  const sorted = [...data].sort((a, b) => a.log_date.localeCompare(b.log_date));
+  const dedupedMap = new Map<string, number>();
+  data.forEach((d) => {
+    const existing = dedupedMap.get(d.log_date) ?? 0;
+    dedupedMap.set(d.log_date, existing + d.total_calories);
+  });
+
+  const dedupedData: DayDatum[] = Array.from(dedupedMap.entries())
+    .map(([log_date, total_calories]) => ({ log_date, total_calories }));
+
+  const sorted = dedupedData.sort((a, b) => a.log_date.localeCompare(b.log_date));
   const maxCals = Math.max(...sorted.map((d) => d.total_calories), 1);
 
   return (

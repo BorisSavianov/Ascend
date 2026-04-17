@@ -199,6 +199,7 @@ export function useLogMeal() {
       const dateStr = context?.dateStr ?? format(variables.loggedAt ?? new Date(), 'yyyy-MM-dd');
       void queryClient.invalidateQueries({ queryKey: ['today_meals', dateStr] });
       void queryClient.invalidateQueries({ queryKey: ['daily_summaries', dateStr] });
+      void queryClient.invalidateQueries({ queryKey: ['weekly_trends'] });
       void queryClient.invalidateQueries({ queryKey: ['frequent_foods'] });
       if (!err) clearItems();
     },

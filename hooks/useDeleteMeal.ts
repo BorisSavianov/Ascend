@@ -15,6 +15,7 @@ export function useDeleteMeal() {
     onSuccess: ({ dateStr }) => {
       void queryClient.invalidateQueries({ queryKey: ['today_meals', dateStr] });
       void queryClient.invalidateQueries({ queryKey: ['daily_summaries', dateStr] });
+      void queryClient.invalidateQueries({ queryKey: ['weekly_trends'] });
     },
     onError: (err) => {
       logger.warn('Delete meal error:', err.message);
