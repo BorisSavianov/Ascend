@@ -2,9 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { format, parseISO, subWeeks, startOfWeek, addDays, differenceInCalendarDays } from 'date-fns';
-import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CartesianChart, Line } from 'victory-native';
+import Screen from '../../../components/ui/Screen';
+import AppHeader from '../../../components/ui/AppHeader';
 import { useAllWorkoutSessions } from '../../../hooks/useAllWorkoutSessions';
 import { useWorkoutPresets } from '../../../hooks/useWorkoutPresets';
 import { usePresetExercises } from '../../../hooks/usePresetExercises';
@@ -23,7 +23,6 @@ const CELL_SIZE = 22;
 const CELL_GAP = 3;
 
 export default function WorkoutHistoryScreen() {
-  const insets = useSafeAreaInsets();
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<WorkoutSessionWithExercises | null>(null);
 
@@ -77,32 +76,10 @@ export default function WorkoutHistoryScreen() {
   const primaryExerciseName = selectedPresetExercises[0]?.exercise_template?.name ?? null;
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg.canvas }}>
-      {/* Header */}
-      <View
-        style={{
-          paddingTop: insets.top + spacing.sm,
-          paddingBottom: spacing.md,
-          paddingHorizontal: spacing.xl,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: spacing.md,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border.subtle,
-        }}
-      >
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={8}
-          style={{ padding: spacing.xs }}
-          accessibilityLabel="Go back"
-        >
-          <Ionicons name="chevron-back" size={22} color={colors.text.primary} />
-        </Pressable>
-        <Text style={[typography.h2, { flex: 1 }]}>History</Text>
-      </View>
+    <Screen>
+      <AppHeader title="Move" eyebrow="History" />
 
-      <View style={{ paddingHorizontal: spacing.xl, paddingVertical: spacing.md }}>
+      <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.md }}>
         <SegmentedControl
           options={[
             { label: 'Today', value: 'today' },
@@ -110,14 +87,14 @@ export default function WorkoutHistoryScreen() {
             { label: 'Templates', value: 'templates' },
           ]}
           value="history"
-          onChange={(v) => {
-            if (v === 'today') router.push('/(tabs)/move');
-            if (v === 'templates') router.push('/move/templates');
+          onChange={(val) => {
+            if (val === 'today')     router.push('/(tabs)/move');
+            if (val === 'templates') router.push('/move/templates');
           }}
         />
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 80 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 132 }}>
 
         {/* Preset filter chips */}
         <ScrollView
@@ -248,7 +225,7 @@ export default function WorkoutHistoryScreen() {
         allTimeBests={allTimeBests}
         onClose={() => setSelectedSession(null)}
       />
-    </View>
+    </Screen>
   );
 }
 
