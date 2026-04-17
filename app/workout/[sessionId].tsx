@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Stack, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -356,27 +356,31 @@ export default function WorkoutSessionScreen() {
             contentContainerStyle={{ padding: spacing.xl, paddingBottom: spacing.lg }}
             keyboardShouldPersistTaps="handled"
           >
-            {visibleExercises.map((le) => (
-              <WorkoutExerciseCard
+            {visibleExercises.map((le, index) => (
+              <Animated.View
                 key={le.id}
-                loggedExercise={le}
-                previousPerformance={lastPerf?.[le.exercise_template_id] ?? null}
-                onAddSet={() =>
-                  addSet({
-                    loggedExerciseId: le.id,
-                    currentSetCount: le.logged_sets.length,
-                    date: today,
-                  })
-                }
-                onRemoveSet={(setId, setIndex) => {
-                  const set = le.logged_sets[setIndex];
-                  if (!set) return;
-                  handleRequestSetRemoval(setId, le.id, set.set_number, setIndex);
-                }}
-                onRemoveExercise={() =>
-                  handleRequestExerciseRemoval(le.id, le.exercise_template.name)
-                }
-              />
+                entering={FadeInDown.delay(Math.min(index * 40, 280)).duration(motion.standard)}
+              >
+                <WorkoutExerciseCard
+                  loggedExercise={le}
+                  previousPerformance={lastPerf?.[le.exercise_template_id] ?? null}
+                  onAddSet={() =>
+                    addSet({
+                      loggedExerciseId: le.id,
+                      currentSetCount: le.logged_sets.length,
+                      date: today,
+                    })
+                  }
+                  onRemoveSet={(setId, setIndex) => {
+                    const set = le.logged_sets[setIndex];
+                    if (!set) return;
+                    handleRequestSetRemoval(setId, le.id, set.set_number, setIndex);
+                  }}
+                  onRemoveExercise={() =>
+                    handleRequestExerciseRemoval(le.id, le.exercise_template.name)
+                  }
+                />
+              </Animated.View>
             ))}
 
             {/* Add exercise button */}

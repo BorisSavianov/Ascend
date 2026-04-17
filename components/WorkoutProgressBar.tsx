@@ -4,6 +4,7 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
+  withSequence,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Button from './ui/Button';
@@ -34,6 +35,19 @@ export default function WorkoutProgressBar({
 
   const barStyle = useAnimatedStyle(() => ({
     width: `${progress.value * 100}%`,
+  }));
+
+  const countScale = useSharedValue(1);
+
+  useEffect(() => {
+    countScale.value = withSequence(
+      withTiming(1.15, { duration: motion.fast }),
+      withTiming(1,    { duration: motion.fast }),
+    );
+  }, [completedSets]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const countAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: countScale.value }],
   }));
 
   const halfDone = totalSets > 0 && completedSets >= Math.ceil(totalSets / 2);
@@ -79,18 +93,20 @@ export default function WorkoutProgressBar({
           justifyContent: 'space-between',
         }}
       >
-        <Text
-          style={[
-            typography.caption,
-            {
-              color: colors.text.secondary,
-              fontFamily: fontFamily.monoRegular,
-              fontVariant: ['tabular-nums'],
-            },
-          ]}
-        >
-          {completedSets} / {totalSets} sets
-        </Text>
+        <Animated.View style={countAnimStyle}>
+          <Text
+            style={[
+              typography.caption,
+              {
+                color: colors.text.secondary,
+                fontFamily: fontFamily.monoRegular,
+                fontVariant: ['tabular-nums'],
+              },
+            ]}
+          >
+            {completedSets} / {totalSets} sets
+          </Text>
+        </Animated.View>
         <Text
           style={[
             typography.caption,

@@ -73,7 +73,9 @@ const WorkoutSetRow = memo(function WorkoutSetRow({
     const nowCompleting = !isCompleted;
     if (!reducedMotion && nowCompleting) {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      checkScale.value = withSpring(1.25, motion.spring.bouncy, () => {
+    }
+    if (!reducedMotion) {
+      checkScale.value = withSpring(0.8, motion.spring.snappy, () => {
         checkScale.value = withSpring(1, motion.spring.snappy);
       });
     }

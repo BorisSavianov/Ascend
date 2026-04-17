@@ -216,7 +216,7 @@ function TodayScreenContent() {
                   .filter((d) => d.log_date != null && d.total_calories != null)
                   .map((d) => ({
                     log_date: d.log_date as string,
-                    total_calories: d.total_calories as number,
+                    total_calories: Number(d.total_calories) || 0,
                   }))}
               />
             </View>
@@ -224,13 +224,15 @@ function TodayScreenContent() {
         </View>
       </ScrollView>
 
-      {pendingMealDelete ? (
-        <UndoToast
-          message={`${pendingMealDelete.meal_label ?? 'Meal'} will be deleted`}
-          onUndo={handleUndoMealDelete}
-        />
-      ) : null}
-    </Screen>
+      {
+        pendingMealDelete ? (
+          <UndoToast
+            message={`${pendingMealDelete.meal_label ?? 'Meal'} will be deleted`}
+            onUndo={handleUndoMealDelete}
+          />
+        ) : null
+      }
+    </Screen >
   );
 }
 
@@ -336,9 +338,9 @@ function MealCard({ meal, onDelete, isPendingDelete = false }: MealCardProps) {
           </View>
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-            {previewNames.map((name) => (
+            {previewNames.map((name, idx) => (
               <View
-                key={name}
+                key={`${name}-${idx}`}
                 style={{
                   paddingHorizontal: spacing.md,
                   paddingVertical: spacing.sm,

@@ -28,7 +28,7 @@ import Button from '../../components/ui/Button';
 import BottomActionBar from '../../components/ui/BottomActionBar';
 import EmptyState from '../../components/EmptyState';
 import Toast from '../../components/ui/Toast';
-import { colors, fontFamily, spacing, typography } from '../../lib/theme';
+import { colors, fontFamily, radius, spacing, typography } from '../../lib/theme';
 import { SkeletonBox } from '../../components/ui/Skeleton';
 import { logger } from '../../lib/logger';
 
@@ -97,6 +97,23 @@ function LogScreenContent() {
     );
     return sum + calories;
   }, 0);
+
+  const totalMacros = selectedItems.reduce(
+    (acc, item: MealItemDraft) => {
+      const n = calculateNutrition(
+        {
+          calories_per_100g: item.caloriesPer100g,
+          protein_per_100g: item.proteinPer100g,
+          fat_per_100g: item.fatPer100g,
+          carbs_per_100g: item.carbsPer100g,
+          fiber_per_100g: item.fiberPer100g,
+        },
+        item.amountG,
+      );
+      return { protein: acc.protein + n.proteinG, carbs: acc.carbs + n.carbsG, fat: acc.fat + n.fatG };
+    },
+    { protein: 0, carbs: 0, fat: 0 },
+  );
 
   function addFoodRow(food: FoodRow) {
     const existing = selectedItems.find((i: MealItemDraft) => i.foodId === food.id);
@@ -176,19 +193,31 @@ function LogScreenContent() {
     const localExternalIds = new Set(
       localResults.map((f) => f.external_id).filter(Boolean),
     );
-    const dedupedApi = apiResults.filter(
-      (r) => !localExternalIds.has(r.externalId),
-    );
+    const dedupedApi = apiResults.filter((r) => !localExternalIds.has(r.externalId));
+
+    const usdaResults   = dedupedApi.filter((r) => r.source === 'usda');
+    const offResults    = dedupedApi.filter((r) => r.source === 'openfoodfacts');
+    const edamamResults = dedupedApi.filter((r) => r.source === 'edamam');
 
     const items: SearchItem[] = [];
+
     if (localResults.length > 0) {
       items.push({ type: 'section', label: 'Your foods' });
       items.push(...localResults.map((f): SearchItem => ({ type: 'local', food: f })));
     }
-    if (dedupedApi.length > 0) {
-      items.push({ type: 'section', label: 'Open Food Facts' });
-      items.push(...dedupedApi.map((r): SearchItem => ({ type: 'api', result: r })));
+    if (usdaResults.length > 0) {
+      items.push({ type: 'section', label: 'USDA FoodData' });
+      items.push(...usdaResults.map((r): SearchItem => ({ type: 'api', result: r })));
     }
+    if (offResults.length > 0) {
+      items.push({ type: 'section', label: 'Open Food Facts' });
+      items.push(...offResults.map((r): SearchItem => ({ type: 'api', result: r })));
+    }
+    if (edamamResults.length > 0) {
+      items.push({ type: 'section', label: 'Edamam' });
+      items.push(...edamamResults.map((r): SearchItem => ({ type: 'api', result: r })));
+    }
+
     return items;
   }, [localResults, apiResults]);
 
@@ -212,7 +241,7 @@ function LogScreenContent() {
             returnKeyType="search"
             label="Food search"
             accessibilityLabel="Search foods"
-            accessibilityHint="Type a food name to search your foods and the Open Food Facts database"
+            accessibilityHint="Type a food name to search your foods and nutrition databases"
           />
 
           {!isSearching && frequentFoods.length > 0 ? (
@@ -369,6 +398,16 @@ function LogScreenContent() {
               >
                 {formatCalories(totalCalories)} kcal
               </Text>
+              {selectedItems.length > 0 && (
+                <Text
+                  style={[
+                    typography.caption,
+                    { color: colors.text.tertiary, marginTop: spacing.xs, fontVariant: ['tabular-nums'] },
+                  ]}
+                >
+                  {Math.round(totalMacros.protein)}g P · {Math.round(totalMacros.carbs)}g C · {Math.round(totalMacros.fat)}g F
+                </Text>
+              )}
             </View>
             <Text style={typography.caption}>
               {selectedItems.length} item{selectedItems.length === 1 ? '' : 's'}
@@ -447,6 +486,15 @@ function ApiSearchRow({
   result: NutritionSearchResult;
   onPress: () => void;
 }) {
+  const sourceLabel =
+    result.source === 'usda' ? 'USDA'
+    : result.source === 'openfoodfacts' ? 'OFF'
+    : 'EDM';
+  const sourceBg =
+    result.source === 'usda'
+      ? colors.accent.primaryMuted
+      : colors.bg.surfaceOverlay;
+
   return (
     <View
       style={{
@@ -465,16 +513,40 @@ function ApiSearchRow({
         }}
       >
         <View style={{ flex: 1 }}>
-          <Text style={typography.body}>{result.name}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
+            <Text style={typography.body}>{result.name}</Text>
+            <View
+              style={{
+                backgroundColor: sourceBg,
+                borderRadius: radius.xs,
+                paddingHorizontal: spacing.sm,
+                paddingVertical: spacing.xs,
+              }}
+            >
+              <Text
+                style={[
+                  typography.caption,
+                  { color: colors.text.secondary, fontFamily: fontFamily.monoMedium },
+                ]}
+              >
+                {sourceLabel}
+              </Text>
+            </View>
+          </View>
           {result.brand ? (
             <Text style={[typography.caption, { marginTop: spacing.xs }]}>
               {result.brand}
             </Text>
           ) : null}
+          <Text
+            style={[
+              typography.caption,
+              { color: colors.text.tertiary, marginTop: spacing.xs },
+            ]}
+          >
+            {result.caloriesPer100g} kcal · {result.proteinPer100g}g P · {result.carbsPer100g}g C · {result.fatPer100g}g F{'  '}(per 100 g)
+          </Text>
         </View>
-        <Text style={[typography.caption, { color: colors.text.secondary }]}>
-          {result.caloriesPer100g} kcal/100g
-        </Text>
         <Button
           label="Add"
           onPress={onPress}
