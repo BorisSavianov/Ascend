@@ -9,11 +9,11 @@ const MAX_RETRIES = 3;
 // Confirmed USDA nutrient IDs from USDA FoodData Central API
 // Source: https://api.nal.usda.gov/fdc/v1 (live API verified)
 const NUTRIENT = {
-  CALORIES: 1008,
-  PROTEIN:  1003,
-  FAT:      1004,
-  CARBS:    1005,
-  FIBER:    1079,
+  CALORIES:  [1008, 2047, 2048] as const,   // energy (kcal): multiple USDA IDs
+  PROTEIN:   1003,
+  FAT:       1004,
+  CARBS:     1005,
+  FIBER:     1079,
 } as const;
 
 // Flat format used in /foods/search responses
@@ -34,8 +34,15 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
-function getNutrient(nutrients: USDANutrient[], id: number): number {
-  return nutrients.find(n => n.nutrientId === id)?.value ?? 0;
+function getNutrient(nutrients: USDANutrient[], id: number | readonly number[]): number {
+  if (typeof id === 'number') {
+    return nutrients.find(n => n.nutrientId === id)?.value ?? 0;
+  }
+  for (const eid of id) {
+    const match = nutrients.find(n => n.nutrientId === eid);
+    if (match !== undefined) return match.value;
+  }
+  return 0;
 }
 
 function mapFood(food: USDASearchFood): NutritionSearchResult | null {

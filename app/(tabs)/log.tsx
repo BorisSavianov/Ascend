@@ -176,19 +176,31 @@ function LogScreenContent() {
     const localExternalIds = new Set(
       localResults.map((f) => f.external_id).filter(Boolean),
     );
-    const dedupedApi = apiResults.filter(
-      (r) => !localExternalIds.has(r.externalId),
-    );
+    const dedupedApi = apiResults.filter((r) => !localExternalIds.has(r.externalId));
+
+    const usdaResults   = dedupedApi.filter((r) => r.source === 'usda');
+    const offResults    = dedupedApi.filter((r) => r.source === 'openfoodfacts');
+    const edamamResults = dedupedApi.filter((r) => r.source === 'edamam');
 
     const items: SearchItem[] = [];
+
     if (localResults.length > 0) {
       items.push({ type: 'section', label: 'Your foods' });
       items.push(...localResults.map((f): SearchItem => ({ type: 'local', food: f })));
     }
-    if (dedupedApi.length > 0) {
-      items.push({ type: 'section', label: 'Open Food Facts' });
-      items.push(...dedupedApi.map((r): SearchItem => ({ type: 'api', result: r })));
+    if (usdaResults.length > 0) {
+      items.push({ type: 'section', label: 'USDA FoodData' });
+      items.push(...usdaResults.map((r): SearchItem => ({ type: 'api', result: r })));
     }
+    if (offResults.length > 0) {
+      items.push({ type: 'section', label: 'Open Food Facts' });
+      items.push(...offResults.map((r): SearchItem => ({ type: 'api', result: r })));
+    }
+    if (edamamResults.length > 0) {
+      items.push({ type: 'section', label: 'Edamam' });
+      items.push(...edamamResults.map((r): SearchItem => ({ type: 'api', result: r })));
+    }
+
     return items;
   }, [localResults, apiResults]);
 
@@ -212,7 +224,7 @@ function LogScreenContent() {
             returnKeyType="search"
             label="Food search"
             accessibilityLabel="Search foods"
-            accessibilityHint="Type a food name to search your foods and the Open Food Facts database"
+            accessibilityHint="Type a food name to search your foods and nutrition databases"
           />
 
           {!isSearching && frequentFoods.length > 0 ? (
