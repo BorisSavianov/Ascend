@@ -3,10 +3,10 @@ import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { useWorkoutStore } from '../store/useWorkoutStore';
 import { StartSessionInputSchema } from '../schemas/validation';
-import type { WorkoutDayWithExercises } from '../types/workout';
+import type { WorkoutPresetWithExercises } from '../types/workout';
 
 type StartSessionVariables = {
-  workoutDay: WorkoutDayWithExercises;
+  preset: WorkoutPresetWithExercises | null;
   date: Date;
 };
 
@@ -28,19 +28,36 @@ export function useStartWorkoutSession() {
 
   return useMutation({
     mutationFn: async ({
-      workoutDay,
+      preset,
       date,
     }: StartSessionVariables): Promise<StartSessionResult> => {
       const dateStr = format(date, 'yyyy-MM-dd');
-      StartSessionInputSchema.parse({ workoutDayId: workoutDay.id, date: dateStr });
+      StartSessionInputSchema.parse({ presetId: preset?.id ?? null, date: dateStr });
+
+      // Build session snapshot from preset
+      const session_snapshot = preset
+        ? {
+            preset_name: preset.name,
+            exercises: preset.exercises.map((ex) => ({
+              exercise_template_id: ex.exercise_template_id,
+              name: ex.exercise_template.name,
+              default_sets: ex.default_sets,
+              default_reps_min: ex.default_reps_min,
+              default_reps_max: ex.default_reps_max,
+              default_weight_kg: ex.default_weight_kg,
+            })),
+          }
+        : null;
 
       // 1. Create the session row
       const { data: session, error: sessErr } = await supabase
         .from('workout_sessions')
         .insert({
-          workout_day_id: workoutDay.id,
+          preset_id: preset?.id ?? null,
           date: dateStr,
           started_at: new Date().toISOString(),
+          status: 'active',
+          session_snapshot,
         })
         .select('id')
         .single();
@@ -49,8 +66,13 @@ export function useStartWorkoutSession() {
         throw new Error(sessErr?.message ?? 'Failed to create session');
       }
 
-      // 2. Pre-create logged_exercise rows (one per day exercise)
-      const exerciseRows = workoutDay.exercises.map((ex) => ({
+      if (!preset || preset.exercises.length === 0) {
+        // Ad-hoc or rest day start — no exercises pre-created
+        return { sessionId: session.id, loggedExercises: [] };
+      }
+
+      // 2. Pre-create logged_exercise rows
+      const exerciseRows = preset.exercises.map((ex) => ({
         session_id: session.id,
         exercise_template_id: ex.exercise_template_id,
         sort_order: ex.sort_order,
@@ -65,12 +87,12 @@ export function useStartWorkoutSession() {
         throw new Error(leErr?.message ?? 'Failed to create logged exercises');
       }
 
-      // 3. Pre-create empty logged_set rows for each exercise
+      // 3. Pre-create empty logged_set rows
       const setRows = loggedExs.flatMap((le) => {
-        const template = workoutDay.exercises.find(
+        const presetEx = preset.exercises.find(
           (ex) => ex.exercise_template_id === le.exercise_template_id,
         );
-        const targetSets = template?.target_sets ?? 2;
+        const targetSets = presetEx?.default_sets ?? 2;
         return Array.from({ length: targetSets }, (_, i) => ({
           logged_exercise_id: le.id,
           set_number: i + 1,
@@ -84,14 +106,14 @@ export function useStartWorkoutSession() {
       return { sessionId: session.id, loggedExercises: loggedExs };
     },
 
-    onSuccess: ({ sessionId }, { workoutDay }) => {
-      startSession(sessionId, workoutDay.id);
-      const dateStr = format(new Date(), 'yyyy-MM-dd');
+    onSuccess: ({ sessionId }, { preset, date }) => {
+      startSession(sessionId, preset?.id ?? null);
+      const dateStr = format(date, 'yyyy-MM-dd');
       void queryClient.invalidateQueries({
         queryKey: ['active_workout_session', dateStr],
       });
       void queryClient.invalidateQueries({
-        queryKey: ['workout_history', workoutDay.id],
+        queryKey: ['workout_history'],
       });
     },
   });

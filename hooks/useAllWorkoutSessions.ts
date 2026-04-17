@@ -1,27 +1,25 @@
 import { useQuery } from '@tanstack/react-query';
+import { subDays, format } from 'date-fns';
 import { supabase } from '../lib/supabase';
-import type { LoggedExercise, WorkoutSession, WorkoutSessionWithExercises } from '../types/workout';
+import type { WorkoutSession, WorkoutSessionWithExercises } from '../types/workout';
 
 /**
- * Returns completed sessions for a preset (or all sessions if presetId is null),
- * each with their logged exercises and sets.
+ * Fetches all completed workout sessions for the past 90 days.
+ * Includes logged_exercises + logged_sets for drill-down views.
  */
-export function useWorkoutHistory(presetId: string | null | undefined) {
+export function useAllWorkoutSessions() {
   return useQuery({
-    queryKey: ['workout_history', presetId ?? 'all'],
+    queryKey: ['all_workout_sessions'],
     queryFn: async (): Promise<WorkoutSessionWithExercises[]> => {
-      let query = supabase
+      const since = format(subDays(new Date(), 90), 'yyyy-MM-dd');
+
+      const { data: sessions, error: sessErr } = await supabase
         .from('workout_sessions')
         .select('*')
         .eq('status', 'completed')
+        .gte('date', since)
         .order('date', { ascending: false })
-        .limit(60);
-
-      if (presetId) {
-        query = query.eq('preset_id', presetId);
-      }
-
-      const { data: sessions, error: sessErr } = await query;
+        .limit(200);
 
       if (sessErr) throw new Error(sessErr.message);
       if (!sessions || sessions.length === 0) return [];
@@ -46,15 +44,13 @@ export function useWorkoutHistory(presetId: string | null | undefined) {
         session_snapshot: session.session_snapshot as WorkoutSession['session_snapshot'],
         logged_exercises: (loggedExercises ?? [])
           .filter((le) => le.session_id === session.id)
-          .map(
-            (le): LoggedExercise => ({
-              ...le,
-              exercise_template: le.exercise_template,
-              logged_sets: [...(le.logged_sets ?? [])].sort(
-                (a, b) => a.set_number - b.set_number,
-              ),
-            }),
-          ),
+          .map((le) => ({
+            ...le,
+            exercise_template: le.exercise_template,
+            logged_sets: [...(le.logged_sets ?? [])].sort(
+              (a, b) => a.set_number - b.set_number,
+            ),
+          })),
       }));
     },
     staleTime: 60_000,

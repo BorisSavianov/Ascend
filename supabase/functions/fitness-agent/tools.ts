@@ -93,7 +93,7 @@ export async function executeTool(
         .from("workout_sessions")
         .select(`
           date, started_at, ended_at, notes,
-          workout_days ( name ),
+          workout_presets ( name ),
           logged_exercises (
             exercise_templates ( name, muscle_group ),
             logged_sets ( set_number, weight_kg, reps, rpe, is_completed )

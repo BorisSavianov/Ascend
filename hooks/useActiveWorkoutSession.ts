@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
-import type { LoggedExercise, WorkoutSessionWithExercises } from '../types/workout';
+import type { LoggedExercise, WorkoutSession, WorkoutSessionWithExercises } from '../types/workout';
 
 /**
  * Fetches today's in-progress workout session (started but not yet ended).
@@ -19,6 +19,7 @@ export function useActiveWorkoutSession(date: Date = new Date()) {
         .select('*')
         .eq('date', dateStr)
         .is('ended_at', null)
+        .neq('status', 'completed')
         .order('started_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -48,7 +49,12 @@ export function useActiveWorkoutSession(date: Date = new Date()) {
         ),
       }));
 
-      return { ...session, logged_exercises: exercises };
+      return {
+        ...session,
+        status: session.status as WorkoutSession['status'],
+        session_snapshot: session.session_snapshot as WorkoutSession['session_snapshot'],
+        logged_exercises: exercises,
+      };
     },
     staleTime: 0, // always re-fetch — active session data changes frequently
   });

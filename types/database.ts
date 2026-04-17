@@ -124,6 +124,7 @@ export type Database = {
           name: string
           notes: string | null
           user_id: string
+          workout_session_id: string | null
         }
         Insert: {
           calories_burned?: number | null
@@ -135,6 +136,7 @@ export type Database = {
           name: string
           notes?: string | null
           user_id?: string
+          workout_session_id?: string | null
         }
         Update: {
           calories_burned?: number | null
@@ -146,8 +148,17 @@ export type Database = {
           name?: string
           notes?: string | null
           user_id?: string
+          workout_session_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "exercises_workout_session_id_fkey"
+            columns: ["workout_session_id"]
+            isOneToOne: false
+            referencedRelation: "workout_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fasting_logs: {
         Row: {
@@ -433,103 +444,100 @@ export type Database = {
         }
         Relationships: []
       }
-      workout_day_exercises: {
+      day_assignments: {
         Row: {
-          exercise_template_id: string
-          id: string
-          sort_order: number
-          target_reps_max: number | null
-          target_reps_min: number | null
-          target_sets: number | null
-          workout_day_id: string
+          day_of_week: number
+          preset_id: string | null
+          user_id: string
         }
         Insert: {
-          exercise_template_id: string
-          id?: string
-          sort_order?: number
-          target_reps_max?: number | null
-          target_reps_min?: number | null
-          target_sets?: number | null
-          workout_day_id: string
+          day_of_week: number
+          preset_id?: string | null
+          user_id?: string
         }
         Update: {
-          exercise_template_id?: string
-          id?: string
-          sort_order?: number
-          target_reps_max?: number | null
-          target_reps_min?: number | null
-          target_sets?: number | null
-          workout_day_id?: string
+          day_of_week?: number
+          preset_id?: string | null
+          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "workout_day_exercises_exercise_template_id_fkey"
+            foreignKeyName: "day_assignments_preset_id_fkey"
+            columns: ["preset_id"]
+            isOneToOne: false
+            referencedRelation: "workout_presets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workout_preset_exercises: {
+        Row: {
+          default_reps_max: number
+          default_reps_min: number
+          default_sets: number
+          default_weight_kg: number | null
+          exercise_template_id: string
+          id: string
+          preset_id: string
+          sort_order: number
+        }
+        Insert: {
+          default_reps_max?: number
+          default_reps_min?: number
+          default_sets?: number
+          default_weight_kg?: number | null
+          exercise_template_id: string
+          id?: string
+          preset_id: string
+          sort_order?: number
+        }
+        Update: {
+          default_reps_max?: number
+          default_reps_min?: number
+          default_sets?: number
+          default_weight_kg?: number | null
+          exercise_template_id?: string
+          id?: string
+          preset_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_preset_exercises_preset_id_fkey"
+            columns: ["preset_id"]
+            isOneToOne: false
+            referencedRelation: "workout_presets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workout_preset_exercises_exercise_template_id_fkey"
             columns: ["exercise_template_id"]
             isOneToOne: false
             referencedRelation: "exercise_templates"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "workout_day_exercises_workout_day_id_fkey"
-            columns: ["workout_day_id"]
-            isOneToOne: false
-            referencedRelation: "workout_days"
-            referencedColumns: ["id"]
-          },
         ]
       }
-      workout_days: {
-        Row: {
-          day_of_week: number
-          id: string
-          is_rest_day: boolean
-          name: string
-          program_id: string
-        }
-        Insert: {
-          day_of_week: number
-          id?: string
-          is_rest_day?: boolean
-          name: string
-          program_id: string
-        }
-        Update: {
-          day_of_week?: number
-          id?: string
-          is_rest_day?: boolean
-          name?: string
-          program_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "workout_days_program_id_fkey"
-            columns: ["program_id"]
-            isOneToOne: false
-            referencedRelation: "workout_programs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      workout_programs: {
+      workout_presets: {
         Row: {
           created_at: string
           id: string
-          is_active: boolean
           name: string
+          updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
-          is_active?: boolean
-          name?: string
+          name: string
+          updated_at?: string
           user_id?: string
         }
         Update: {
           created_at?: string
           id?: string
-          is_active?: boolean
           name?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -541,9 +549,11 @@ export type Database = {
           ended_at: string | null
           id: string
           notes: string | null
+          preset_id: string | null
+          session_snapshot: Json | null
           started_at: string
+          status: string
           user_id: string
-          workout_day_id: string
         }
         Insert: {
           created_at?: string
@@ -551,9 +561,11 @@ export type Database = {
           ended_at?: string | null
           id?: string
           notes?: string | null
+          preset_id?: string | null
+          session_snapshot?: Json | null
           started_at?: string
+          status?: string
           user_id?: string
-          workout_day_id: string
         }
         Update: {
           created_at?: string
@@ -561,16 +573,18 @@ export type Database = {
           ended_at?: string | null
           id?: string
           notes?: string | null
+          preset_id?: string | null
+          session_snapshot?: Json | null
           started_at?: string
+          status?: string
           user_id?: string
-          workout_day_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "workout_sessions_workout_day_id_fkey"
-            columns: ["workout_day_id"]
+            foreignKeyName: "workout_sessions_preset_id_fkey"
+            columns: ["preset_id"]
             isOneToOne: false
-            referencedRelation: "workout_days"
+            referencedRelation: "workout_presets"
             referencedColumns: ["id"]
           },
         ]
@@ -729,7 +743,7 @@ export type Database = {
         Returns: undefined
       }
       seed_personal_foods: { Args: { p_user_id: string }; Returns: undefined }
-      seed_workout_program: { Args: { p_user_id: string }; Returns: undefined }
+      seed_workout_presets: { Args: { p_user_id: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

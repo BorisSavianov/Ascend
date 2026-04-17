@@ -3,21 +3,19 @@ import { supabase } from '../lib/supabase';
 import type { PreviousExercisePerformance } from '../types/workout';
 
 /**
- * Returns the most recent completed session's sets for a given workout day,
- * indexed by exercise_template_id. Used to populate the "previous" column
- * in set rows and to pre-fill weight/reps inputs.
+ * Returns the most recent completed session's sets for a given preset,
+ * indexed by exercise_template_id. Used for "previous" column and weight pre-fill.
  */
-export function useLastWorkoutPerformance(workoutDayId: string | null) {
+export function useLastWorkoutPerformance(presetId: string | null) {
   return useQuery({
-    queryKey: ['last_workout_performance', workoutDayId],
-    enabled: workoutDayId != null,
+    queryKey: ['last_workout_performance', presetId],
+    enabled: presetId != null,
     queryFn: async (): Promise<Record<string, PreviousExercisePerformance>> => {
-      // Most recent completed session for this day
       const { data: session, error: sessErr } = await supabase
         .from('workout_sessions')
         .select('id')
-        .eq('workout_day_id', workoutDayId!)
-        .not('ended_at', 'is', null)
+        .eq('preset_id', presetId!)
+        .eq('status', 'completed')
         .order('date', { ascending: false })
         .limit(1)
         .maybeSingle();

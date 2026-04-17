@@ -45,9 +45,20 @@ export const LogSetInputSchema = z.object({
 });
 
 export const StartSessionInputSchema = z.object({
-  workoutDayId: z.string().uuid(),
+  presetId: z.string().uuid().nullable(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 
 export type LogSetInput = z.infer<typeof LogSetInputSchema>;
 export type StartSessionInput = z.infer<typeof StartSessionInputSchema>;
+
+export const CreatePresetInputSchema = z.object({
+  name: z.string().min(1).max(60),
+});
+export type CreatePresetInput = z.infer<typeof CreatePresetInputSchema>;
+
+export const UpsertDayAssignmentSchema = z.object({
+  dayOfWeek: z.number().int().min(0).max(6),
+  presetId: z.string().uuid().nullable(),
+});
+export type UpsertDayAssignment = z.infer<typeof UpsertDayAssignmentSchema>;

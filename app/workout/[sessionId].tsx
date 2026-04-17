@@ -1,57 +1,85 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useElapsedTimer } from '../../lib/workoutTimer';
 import {
   BackHandler,
+  FlatList,
+  Modal,
+  Pressable,
   ScrollView,
   Text,
   View,
-  Pressable,
 } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { Stack, useLocalSearchParams, router } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '../../lib/supabase';
 import { useActiveWorkoutSession } from '../../hooks/useActiveWorkoutSession';
 import { useLastWorkoutPerformance } from '../../hooks/useLastWorkoutPerformance';
 import { useFinishWorkoutSession } from '../../hooks/useFinishWorkoutSession';
-import { useWorkoutHistory } from '../../hooks/useWorkoutHistory';
+import { useAddExerciseToSession } from '../../hooks/useAddExerciseToSession';
+import { useRemoveExerciseFromSession } from '../../hooks/useRemoveExerciseFromSession';
+import { useAddSet } from '../../hooks/useAddSet';
+import { useRemoveSet } from '../../hooks/useRemoveSet';
 import { useWorkoutStore } from '../../store/useWorkoutStore';
 import WorkoutExerciseCard from '../../components/WorkoutExerciseCard';
 import WorkoutProgressBar from '../../components/WorkoutProgressBar';
-import WorkoutHistorySheet from '../../components/WorkoutHistorySheet';
 import ConfirmationSheet from '../../components/ui/ConfirmationSheet';
+import UndoToast from '../../components/ui/UndoToast';
 import Surface from '../../components/ui/Surface';
 import { SkeletonBox } from '../../components/ui/Skeleton';
+import type { ExerciseTemplate } from '../../types/workout';
 import { colors, fontFamily, motion, radius, spacing, typography } from '../../lib/theme';
-import type { WorkoutDayExercise } from '../../types/workout';
+
+const UNDO_DELAY_MS = 5000;
+
+type PendingSetRemoval = {
+  setId: string;
+  loggedExerciseId: string;
+  setNumber: number;
+  setIndex: number;
+};
+
+type PendingExerciseRemoval = {
+  loggedExerciseId: string;
+  exerciseName: string;
+};
 
 export default function WorkoutSessionScreen() {
-  useLocalSearchParams<{ sessionId: string }>();
-
   const insets = useSafeAreaInsets();
+  const today = new Date();
 
   const { data: session, isLoading } = useActiveWorkoutSession();
-  const { data: lastPerf } = useLastWorkoutPerformance(session?.workout_day_id ?? null);
-  const { data: history = [], isLoading: historyLoading } = useWorkoutHistory(
-    session?.workout_day_id ?? null,
-  );
+  const { data: lastPerf } = useLastWorkoutPerformance(session?.preset_id ?? null);
   const { mutate: finish, isPending: isFinishing } = useFinishWorkoutSession();
-  const { initExerciseSets } = useWorkoutStore();
+  const { mutate: addExercise, isPending: isAddingExercise } = useAddExerciseToSession();
+  const { mutate: removeExercise } = useRemoveExerciseFromSession();
+  const { mutate: addSet } = useAddSet();
+  const { mutate: removeSet } = useRemoveSet();
 
-  const [elapsed, setElapsed] = useState(0);
-  const [showHistory, setShowHistory] = useState(false);
+  const { initExerciseSets, sessionStartedAt, pausedAt, pausedDurationMs, pauseSession, resumeSession, resetSession } =
+    useWorkoutStore();
+
+  const elapsedLabel = useElapsedTimer(sessionStartedAt, pausedAt, pausedDurationMs);
+  const isPaused = pausedAt !== null;
+
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
+  const [showAddExercise, setShowAddExercise] = useState(false);
+
+  // Undo state for set removal
+  const [pendingSetRemoval, setPendingSetRemoval] = useState<PendingSetRemoval | null>(null);
+  const setUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Undo state for exercise removal
+  const [pendingExerciseRemoval, setPendingExerciseRemoval] = useState<PendingExerciseRemoval | null>(null);
+  const exerciseUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Thin top-of-header progress bar
   const topProgress = useSharedValue(0);
   const topBarStyle = useAnimatedStyle(() => ({
     width: `${topProgress.value * 100}%`,
   }));
-
-  // Elapsed timer
-  useEffect(() => {
-    const interval = setInterval(() => setElapsed((s) => s + 1), 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Initialise Zustand set inputs when session data loads
   useEffect(() => {
@@ -75,6 +103,14 @@ export default function WorkoutSessionScreen() {
     return () => handler.remove();
   }, [session]);
 
+  // Cleanup undo timers on unmount
+  useEffect(() => {
+    return () => {
+      if (setUndoTimerRef.current) clearTimeout(setUndoTimerRef.current);
+      if (exerciseUndoTimerRef.current) clearTimeout(exerciseUndoTimerRef.current);
+    };
+  }, []);
+
   const handleBackPress = useCallback(() => {
     if (!session) {
       router.back();
@@ -92,14 +128,76 @@ export default function WorkoutSessionScreen() {
 
   function handleFinish() {
     if (!session) return;
+    // Commit any pending removals before finishing
+    if (pendingSetRemoval) {
+      commitSetRemoval(pendingSetRemoval);
+      setPendingSetRemoval(null);
+    }
+    if (pendingExerciseRemoval) {
+      commitExerciseRemoval(pendingExerciseRemoval);
+      setPendingExerciseRemoval(null);
+    }
     finish(session.id, {
-      onSuccess: () => router.back(),
+      onSuccess: () => {
+        resetSession();
+        router.back();
+      },
     });
   }
 
   function handleFinishConfirmed() {
     setShowFinishConfirm(false);
     handleFinish();
+  }
+
+  // ── Set removal with undo ────────────────────────────────────────────────────
+
+  function commitSetRemoval(pending: PendingSetRemoval) {
+    removeSet({
+      setId: pending.setId,
+      loggedExerciseId: pending.loggedExerciseId,
+      setNumber: pending.setNumber,
+      setIndex: pending.setIndex,
+      date: today,
+    });
+  }
+
+  function handleRequestSetRemoval(setId: string, loggedExerciseId: string, setNumber: number, setIndex: number) {
+    if (setUndoTimerRef.current) clearTimeout(setUndoTimerRef.current);
+    if (pendingSetRemoval) commitSetRemoval(pendingSetRemoval);
+
+    setPendingSetRemoval({ setId, loggedExerciseId, setNumber, setIndex });
+    setUndoTimerRef.current = setTimeout(() => {
+      setPendingSetRemoval(null);
+      commitSetRemoval({ setId, loggedExerciseId, setNumber, setIndex });
+    }, UNDO_DELAY_MS);
+  }
+
+  function handleUndoSetRemoval() {
+    if (setUndoTimerRef.current) clearTimeout(setUndoTimerRef.current);
+    setPendingSetRemoval(null);
+  }
+
+  // ── Exercise removal with undo ───────────────────────────────────────────────
+
+  function commitExerciseRemoval(pending: PendingExerciseRemoval) {
+    removeExercise({ loggedExerciseId: pending.loggedExerciseId, date: today });
+  }
+
+  function handleRequestExerciseRemoval(loggedExerciseId: string, exerciseName: string) {
+    if (exerciseUndoTimerRef.current) clearTimeout(exerciseUndoTimerRef.current);
+    if (pendingExerciseRemoval) commitExerciseRemoval(pendingExerciseRemoval);
+
+    setPendingExerciseRemoval({ loggedExerciseId, exerciseName });
+    exerciseUndoTimerRef.current = setTimeout(() => {
+      setPendingExerciseRemoval(null);
+      commitExerciseRemoval({ loggedExerciseId, exerciseName });
+    }, UNDO_DELAY_MS);
+  }
+
+  function handleUndoExerciseRemoval() {
+    if (exerciseUndoTimerRef.current) clearTimeout(exerciseUndoTimerRef.current);
+    setPendingExerciseRemoval(null);
   }
 
   const totalSets =
@@ -115,62 +213,40 @@ export default function WorkoutSessionScreen() {
     topProgress.value = withTiming(fraction, { duration: motion.standard });
   }, [completedSets, totalSets]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Build a map from exercise_template_id to WorkoutDayExercise for target data
-  // We don't have workoutDay data here, but we can reconstruct targets from
-  // the logged_sets count since pre-creation used the correct target_sets.
-  // For target_reps_min/max we fall back to the template defaults.
-  // A more complete approach would fetch workout_day_exercises separately,
-  // but for now we use exercise_template defaults which is sufficient.
-  type LoggedEx = NonNullable<typeof session>['logged_exercises'][0];
-  function makeFallbackDayExercise(le: LoggedEx): WorkoutDayExercise {
-    return {
-      id: le.id,
-      workout_day_id: session?.workout_day_id ?? '',
-      exercise_template_id: le.exercise_template_id,
-      sort_order: le.sort_order,
-      target_sets: le.logged_sets.length,
-      target_reps_min: le.exercise_template.target_reps_min,
-      target_reps_max: le.exercise_template.target_reps_max,
-      exercise_template: le.exercise_template,
-    };
-  }
+  const sessionName = session?.session_snapshot?.preset_name
+    ?? `Session · ${new Date(session?.date ?? Date.now()).toLocaleDateString('en-GB', {
+        weekday: 'long', day: 'numeric', month: 'short',
+      })}`;
 
-  const dayName = session
-    ? `Session · ${new Date(session.date).toLocaleDateString('en-GB', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'short',
-      })}`
-    : 'Workout';
+  // Filter out pending exercise removal from visible list
+  const visibleExercises = (session?.logged_exercises ?? []).filter(
+    (le) => le.id !== pendingExerciseRemoval?.loggedExerciseId,
+  );
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={{ flex: 1, backgroundColor: colors.bg.canvas }}>
+        {/* Undo toasts */}
+        {pendingExerciseRemoval ? (
+          <UndoToast
+            message={`"${pendingExerciseRemoval.exerciseName}" will be removed`}
+            onUndo={handleUndoExerciseRemoval}
+          />
+        ) : pendingSetRemoval ? (
+          <UndoToast
+            message="Set will be removed"
+            onUndo={handleUndoSetRemoval}
+          />
+        ) : null}
+
         {/* Custom header */}
-        <View
-          style={{
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border.subtle,
-          }}
-        >
+        <View style={{ borderBottomWidth: 1, borderBottomColor: colors.border.subtle }}>
           {/* Thin animated progress bar along the top edge */}
-          <View
-            style={{
-              height: 3,
-              backgroundColor: colors.border.subtle,
-              overflow: 'hidden',
-            }}
-          >
+          <View style={{ height: 3, backgroundColor: colors.border.subtle, overflow: 'hidden' }}>
             <Animated.View
-              style={[
-                {
-                  height: 3,
-                  backgroundColor: colors.intensity.primary,
-                },
-                topBarStyle,
-              ]}
+              style={[{ height: 3, backgroundColor: colors.intensity.primary }, topBarStyle]}
             />
           </View>
 
@@ -192,30 +268,37 @@ export default function WorkoutSessionScreen() {
             >
               <Ionicons name="chevron-back" size={22} color={colors.text.primary} />
             </Pressable>
+
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={typography.h2} numberOfLines={1}>
-                {dayName}
+                {sessionName}
               </Text>
               <Text
                 style={[
                   typography.caption,
                   {
                     fontFamily: fontFamily.monoRegular,
-                    color: colors.intensity.primary,
+                    color: isPaused ? colors.semantic.warning : colors.intensity.primary,
                     fontVariant: ['tabular-nums'],
                   },
                 ]}
               >
-                {String(Math.floor(elapsed / 60)).padStart(2, '0')}:{String(elapsed % 60).padStart(2, '0')}
+                {isPaused ? `Paused · ${elapsedLabel}` : elapsedLabel}
               </Text>
             </View>
+
+            {/* Pause / Resume */}
             <Pressable
-              onPress={() => setShowHistory(true)}
+              onPress={isPaused ? resumeSession : pauseSession}
               hitSlop={8}
               style={{ padding: spacing.xs }}
-              accessibilityLabel="View history"
+              accessibilityLabel={isPaused ? 'Resume timer' : 'Pause timer'}
             >
-              <Ionicons name="time-outline" size={22} color={colors.text.secondary} />
+              <Ionicons
+                name={isPaused ? 'play-circle-outline' : 'pause-circle-outline'}
+                size={22}
+                color={isPaused ? colors.semantic.warning : colors.text.secondary}
+              />
             </Pressable>
           </View>
         </View>
@@ -246,7 +329,7 @@ export default function WorkoutSessionScreen() {
                     <SkeletonBox width="45%" height={12} />
                   </View>
                 </View>
-                {[1, 2, 3].map((j) => (
+                {[1, 2].map((j) => (
                   <View key={j} style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
                     <SkeletonBox width={28} height={36} />
                     <SkeletonBox width={68} height={36} />
@@ -259,13 +342,7 @@ export default function WorkoutSessionScreen() {
             ))}
           </ScrollView>
         ) : !session ? (
-          <View
-            style={{
-              flex: 1,
-              padding: spacing.xl,
-              justifyContent: 'center',
-            }}
-          >
+          <View style={{ flex: 1, padding: spacing.xl, justifyContent: 'center' }}>
             <Surface>
               <Text style={typography.h3}>Session not found</Text>
               <Text style={[typography.bodySm, { marginTop: spacing.sm }]}>
@@ -276,22 +353,55 @@ export default function WorkoutSessionScreen() {
         ) : (
           <ScrollView
             style={{ flex: 1 }}
-            contentContainerStyle={{
-              padding: spacing.xl,
-              paddingBottom: spacing.lg,
-            }}
+            contentContainerStyle={{ padding: spacing.xl, paddingBottom: spacing.lg }}
             keyboardShouldPersistTaps="handled"
           >
-            {session.logged_exercises.map((le) => (
+            {visibleExercises.map((le) => (
               <WorkoutExerciseCard
                 key={le.id}
                 loggedExercise={le}
-                workoutDayExercise={makeFallbackDayExercise(le)}
-                previousPerformance={
-                  lastPerf?.[le.exercise_template_id] ?? null
+                previousPerformance={lastPerf?.[le.exercise_template_id] ?? null}
+                onAddSet={() =>
+                  addSet({
+                    loggedExerciseId: le.id,
+                    currentSetCount: le.logged_sets.length,
+                    date: today,
+                  })
+                }
+                onRemoveSet={(setId, setIndex) => {
+                  const set = le.logged_sets[setIndex];
+                  if (!set) return;
+                  handleRequestSetRemoval(setId, le.id, set.set_number, setIndex);
+                }}
+                onRemoveExercise={() =>
+                  handleRequestExerciseRemoval(le.id, le.exercise_template.name)
                 }
               />
             ))}
+
+            {/* Add exercise button */}
+            <Pressable
+              onPress={() => setShowAddExercise(true)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: spacing.sm,
+                paddingVertical: spacing.lg,
+                borderRadius: radius.lg,
+                borderWidth: 1,
+                borderColor: colors.border.default,
+                borderStyle: 'dashed',
+                marginBottom: spacing.md,
+              }}
+              accessibilityLabel="Add exercise"
+            >
+              <Ionicons name="add-circle-outline" size={20} color={colors.text.secondary} />
+              <Text style={[typography.bodySm, { color: colors.text.secondary }]}>
+                {isAddingExercise ? 'Adding…' : 'Add exercise'}
+              </Text>
+            </Pressable>
+
             {/* Extra space so last card isn't hidden behind the progress bar */}
             <View style={{ height: 120 }} />
           </ScrollView>
@@ -302,7 +412,7 @@ export default function WorkoutSessionScreen() {
           <WorkoutProgressBar
             completedSets={completedSets}
             totalSets={totalSets}
-            elapsedSeconds={elapsed}
+            elapsedLabel={elapsedLabel}
             onFinish={handleFinish}
             isFinishing={isFinishing}
           />
@@ -320,16 +430,156 @@ export default function WorkoutSessionScreen() {
         onCancel={() => setShowFinishConfirm(false)}
       />
 
-      {/* History bottom sheet */}
+      {/* Add Exercise modal */}
       {session ? (
-        <WorkoutHistorySheet
-          visible={showHistory}
-          workoutDayName={dayName}
-          sessions={history}
-          isLoading={historyLoading}
-          onClose={() => setShowHistory(false)}
+        <AddExerciseModal
+          visible={showAddExercise}
+          sessionId={session.id}
+          existingExerciseIds={session.logged_exercises.map((le) => le.exercise_template_id)}
+          nextSortOrder={session.logged_exercises.length + 1}
+          date={today}
+          onAdd={(templateId, defaultSets) => {
+            addExercise(
+              {
+                sessionId: session.id,
+                exerciseTemplateId: templateId,
+                sortOrder: session.logged_exercises.length + 1,
+                defaultSets,
+                date: today,
+              },
+              { onSuccess: () => setShowAddExercise(false) },
+            );
+          }}
+          onClose={() => setShowAddExercise(false)}
         />
       ) : null}
     </>
+  );
+}
+
+// ── Add Exercise Modal ────────────────────────────────────────────────────────
+
+function AddExerciseModal({
+  visible,
+  sessionId: _sessionId,
+  existingExerciseIds,
+  nextSortOrder: _nextSortOrder,
+  date: _date,
+  onAdd,
+  onClose,
+}: {
+  visible: boolean;
+  sessionId: string;
+  existingExerciseIds: string[];
+  nextSortOrder: number;
+  date: Date;
+  onAdd: (templateId: string, defaultSets: number) => void;
+  onClose: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+
+  const { data: templates = [], isLoading } = useQuery({
+    queryKey: ['exercise_templates'],
+    queryFn: async (): Promise<ExerciseTemplate[]> => {
+      const { data, error } = await supabase
+        .from('exercise_templates')
+        .select('*')
+        .order('name', { ascending: true });
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: colors.bg.canvas,
+          paddingTop: insets.top + spacing.lg,
+        }}
+      >
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: spacing.xl,
+            paddingBottom: spacing.lg,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border.subtle,
+            gap: spacing.md,
+          }}
+        >
+          <Text style={[typography.h2, { flex: 1 }]}>Add exercise</Text>
+          <Pressable onPress={onClose} hitSlop={8} accessibilityLabel="Close">
+            <Ionicons name="close" size={22} color={colors.text.secondary} />
+          </Pressable>
+        </View>
+
+        {isLoading ? (
+          <View style={{ padding: spacing.xl, gap: spacing.md }}>
+            {[1, 2, 3, 4].map((i) => (
+              <SkeletonBox key={i} width="100%" height={52} borderRadius={radius.md} />
+            ))}
+          </View>
+        ) : (
+          <FlatList
+            data={templates}
+            keyExtractor={(t) => t.id}
+            contentContainerStyle={{ padding: spacing.xl, gap: spacing.sm }}
+            renderItem={({ item: template }) => {
+              const alreadyAdded = existingExerciseIds.includes(template.id);
+              return (
+                <Pressable
+                  onPress={() => !alreadyAdded && onAdd(template.id, template.target_sets)}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: spacing.md,
+                    padding: spacing.lg,
+                    borderRadius: radius.md,
+                    borderWidth: 1,
+                    borderColor: colors.border.subtle,
+                    backgroundColor: alreadyAdded
+                      ? colors.bg.surfaceRaised
+                      : colors.bg.surface,
+                    opacity: alreadyAdded ? 0.5 : 1,
+                  }}
+                  accessibilityLabel={template.name}
+                  disabled={alreadyAdded}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={typography.body} numberOfLines={1}>
+                      {template.name}
+                    </Text>
+                    <Text
+                      style={[
+                        typography.caption,
+                        { color: colors.text.tertiary, textTransform: 'capitalize' },
+                      ]}
+                    >
+                      {template.muscle_group.replace('_', ' ')} · {template.equipment}
+                    </Text>
+                  </View>
+                  {alreadyAdded ? (
+                    <Text style={[typography.caption, { color: colors.text.disabled }]}>
+                      Added
+                    </Text>
+                  ) : (
+                    <Ionicons name="add" size={20} color={colors.text.secondary} />
+                  )}
+                </Pressable>
+              );
+            }}
+          />
+        )}
+      </View>
+    </Modal>
   );
 }
