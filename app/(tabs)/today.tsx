@@ -13,11 +13,8 @@ import Animated, {
   FadeOutUp,
   LinearTransition,
 } from 'react-native-reanimated';
-import { format, isToday, subDays, addDays } from 'date-fns';
-import CalorieRing from '../../components/CalorieRing';
-import MacroBar from '../../components/MacroBar';
-import WeeklyChart from '../../components/WeeklyChart';
-import EmptyState from '../../components/EmptyState';
+import { Canvas, Path, Skia } from '@shopify/react-native-skia';
+import { format, isToday, subDays, addDays, isSameDay } from 'date-fns';
 import { useDailySummary } from '../../hooks/useDailySummary';
 import { useDeleteMeal } from '../../hooks/useDeleteMeal';
 import { useTodayMeals, type MealWithItems } from '../../hooks/useTodayMeals';
@@ -26,12 +23,11 @@ import { useAppStore } from '../../store/useAppStore';
 import { formatCalories } from '../../lib/calculations';
 import { useQueryClient } from '@tanstack/react-query';
 import Screen from '../../components/ui/Screen';
-import AppHeader from '../../components/ui/AppHeader';
-import Surface from '../../components/ui/Surface';
 import Button from '../../components/ui/Button';
 import UndoToast from '../../components/ui/UndoToast';
 import { SkeletonBox } from '../../components/ui/Skeleton';
 import { colors, fontFamily, radius, spacing, typography } from '../../lib/theme';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function TodayScreen() {
   return (
@@ -52,7 +48,7 @@ function TodayScreenContent() {
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: summary, isFetching: summaryFetching } = useDailySummary(selectedDate);
-  const { data: meals, isFetching: mealsFetching, refetch } = useTodayMeals(selectedDate);
+  const { data: meals = [], isFetching: mealsFetching, refetch } = useTodayMeals(selectedDate);
   const { data: weeklyData = [] } = useWeeklyTrends();
   const calorieTarget = useAppStore((s) => s.calorieTarget);
   const macroTargets = useAppStore((s) => s.macroTargets);
@@ -95,23 +91,28 @@ function TodayScreenContent() {
   }
 
   const consumed = summary?.total_calories ?? 0;
-  const proteinG = summary?.total_protein_g ?? 0;
-  const fatG = summary?.total_fat_g ?? 0;
-  const carbsG = summary?.total_carbs_g ?? 0;
+  const proteinG  = summary?.total_protein_g ?? 0;
+  const fatG      = summary?.total_fat_g ?? 0;
+  const carbsG    = summary?.total_carbs_g ?? 0;
   const summaryExt = summary as (typeof summary & {
     net_calories?: number | null;
     exercise_calories_burned?: number | null;
   }) | undefined;
   const exerciseCalories = summaryExt?.exercise_calories_burned ?? 0;
-  const netCalories = summaryExt?.net_calories ?? consumed;
+  const netCalories      = summaryExt?.net_calories ?? consumed;
+  const leftToTarget     = Math.max(calorieTarget - netCalories, 0);
+  const ringPct          = calorieTarget > 0 ? Math.min(1, netCalories / calorieTarget) : 0;
+
+  // Build 7-day strip using weeklyData
+  const today = new Date();
+  const stripDays = Array.from({ length: 7 }, (_, i) => subDays(today, 6 - i));
+  const weeklyMap = new Map(weeklyData.map((d) => [d.log_date, d.total_calories]));
 
   return (
     <Screen>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{
-          paddingBottom: 132,
-        }}
+        contentContainerStyle={{ paddingBottom: 132 }}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -120,79 +121,242 @@ function TodayScreenContent() {
           />
         }
       >
-        <AppHeader
-          title={atToday ? 'Today' : format(selectedDate, 'EEEE')}
-          subtitle={atToday
-            ? "A calmer view of what you've logged and what still matters today."
-            : `Reviewing your log for ${format(selectedDate, 'd MMMM yyyy')}.`}
-          trailing={
-            <DateNav
-              atToday={atToday}
-              onPrev={() => navigateDate(-1)}
-              onNext={() => navigateDate(1)}
-            />
-          }
-        />
-
-        <View style={{ paddingHorizontal: spacing.xl, gap: spacing.xl }}>
-          <Surface gradient="nutrition" elevated>
-            <View style={{ alignItems: 'center' }}>
-              {summaryFetching && consumed === 0 ? (
-                <SkeletonBox width={200} height={200} borderRadius={100} />
-              ) : (
-                <CalorieRing consumed={consumed} target={calorieTarget} />
-              )}
-            </View>
-
-            <View
-              style={{
-                flexDirection: 'row',
-                gap: spacing.md,
-                marginTop: spacing.xl,
-              }}
-            >
-              <MetricCard
-                label="Net"
-                value={`${formatCalories(netCalories)}`}
-                tone={exerciseCalories > 0 ? 'accent' : 'default'}
-              />
-              <MetricCard
-                label="Exercise"
-                value={`${formatCalories(exerciseCalories)}`}
-                tone="default"
-              />
-              <MetricCard
-                label="Target"
-                value={`${formatCalories(calorieTarget)}`}
-                tone="default"
-              />
-            </View>
-
-            <View style={{ marginTop: spacing.xl }}>
-              <Text style={[typography.label, { fontFamily: fontFamily.medium, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.text.tertiary }]}>Macro balance</Text>
-              <View style={{ marginTop: spacing.md }}>
-                <MacroBar
-                  proteinG={proteinG}
-                  fatG={fatG}
-                  carbsG={carbsG}
-                  targets={macroTargets}
-                />
-              </View>
-            </View>
-          </Surface>
-
+        {/* ── Header ── */}
+        <View style={{
+          paddingHorizontal: spacing.xl,
+          paddingTop: spacing.xl,
+          paddingBottom: spacing.md,
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+        }}>
           <View>
-            <Text style={typography.h2}>Meals</Text>
-            <Text style={[typography.caption, { marginTop: spacing.xs, marginBottom: spacing.md }]}>
-              Expand any meal to review items or remove it from today.
+            <Text style={[typography.label, { color: colors.text.tertiary, marginBottom: spacing.xs }]}>
+              {format(selectedDate, 'EEE · d MMM')}
             </Text>
+            <Text style={typography.h1}>
+              {atToday ? 'Today' : format(selectedDate, 'EEEE')}
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs }}>
+            <Pressable
+              onPress={() => navigateDate(-1)}
+              style={{
+                width: 36, height: 36, borderRadius: radius.sm,
+                backgroundColor: colors.bg.surface,
+                borderWidth: 1, borderColor: colors.border.subtle,
+                alignItems: 'center', justifyContent: 'center',
+              }}
+              accessibilityLabel="Previous day"
+            >
+              <Ionicons name="chevron-back" size={16} color={colors.text.secondary} />
+            </Pressable>
+            <Pressable
+              onPress={() => { if (!atToday) navigateDate(1); }}
+              style={{
+                width: 36, height: 36, borderRadius: radius.sm,
+                backgroundColor: atToday ? colors.bg.surface : colors.bg.surfaceRaised,
+                borderWidth: 1, borderColor: atToday ? colors.border.subtle : colors.border.default,
+                alignItems: 'center', justifyContent: 'center',
+              }}
+              accessibilityLabel="Next day"
+              accessibilityState={{ disabled: atToday }}
+            >
+              <Ionicons name="chevron-forward" size={16} color={atToday ? colors.text.disabled : colors.text.secondary} />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* ── 7-day strip ── */}
+        <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.lg }}>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            {stripDays.map((day, i) => {
+              const dayStr = format(day, 'yyyy-MM-dd');
+              const kcal = (weeklyMap.get(dayStr) ?? 0) as number;
+              const barPct = calorieTarget > 0 ? Math.min(1.1, kcal / calorieTarget) : 0;
+              const isSelected = isSameDay(day, selectedDate);
+              const isOver = kcal > calorieTarget && calorieTarget > 0;
+
+              return (
+                <Pressable
+                  key={i}
+                  onPress={() => setSelectedDate(day)}
+                  style={{
+                    flex: 1,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: isSelected ? colors.border.default : colors.border.subtle,
+                    backgroundColor: isSelected ? colors.bg.surface : 'transparent',
+                    paddingVertical: spacing.sm,
+                    paddingHorizontal: 4,
+                    alignItems: 'center',
+                    gap: 5,
+                  }}
+                >
+                  <Text style={{
+                    fontSize: 10, fontWeight: '500',
+                    fontFamily: fontFamily.medium,
+                    color: isSelected ? colors.text.secondary : colors.text.disabled,
+                  }}>
+                    {format(day, 'EEE').charAt(0)}
+                  </Text>
+                  <View style={{ width: '100%', height: 24, justifyContent: 'flex-end' }}>
+                    {kcal > 0 && (
+                      <View style={{
+                        width: '100%',
+                        height: Math.max(3, barPct * 24),
+                        backgroundColor: isOver ? colors.intensity.primary : colors.accent.primary,
+                        opacity: isSelected ? 1 : 0.45,
+                        borderRadius: 3,
+                      }} />
+                    )}
+                  </View>
+                  <Text style={{
+                    fontSize: 9,
+                    fontFamily: fontFamily.monoMedium,
+                    color: isSelected ? colors.text.primary : colors.text.disabled,
+                    fontVariant: ['tabular-nums'],
+                  }}>
+                    {kcal > 0 ? `${(kcal / 1000).toFixed(1)}k` : '—'}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
+          {/* ── Net energy hero card ── */}
+          <View style={{
+            borderRadius: radius.lg,
+            borderWidth: 1,
+            borderColor: 'rgba(143, 179, 255, 0.18)',
+            overflow: 'hidden',
+          }}>
+            <LinearGradient
+              colors={['#15181E', '#12203A']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0.3, y: 1 }}
+              style={{ padding: spacing.xl }}
+            >
+              {summaryFetching && consumed === 0 ? (
+                <SkeletonBox width="100%" height={120} borderRadius={radius.md} />
+              ) : (
+                <>
+                  {/* Top row: metric + ring */}
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[typography.label, { color: colors.text.tertiary, marginBottom: spacing.sm }]}>
+                        Net energy
+                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6, flexWrap: 'wrap' }}>
+                        <Text style={[typography.metricHero, { lineHeight: 52 }]}>
+                          {netCalories.toLocaleString()}
+                        </Text>
+                        <Text style={[typography.bodySm, { color: colors.text.tertiary, marginBottom: 6 }]}>
+                          / {calorieTarget.toLocaleString()} kcal
+                        </Text>
+                      </View>
+                      <Text style={[typography.bodySm, { marginTop: 4 }]}>
+                        <Text style={{ color: colors.accent.primary }}>{leftToTarget.toLocaleString()}</Text>
+                        <Text style={{ color: colors.text.tertiary }}> left to target</Text>
+                      </Text>
+                    </View>
+                    <NetRing pct={ringPct} />
+                  </View>
+
+                  {/* Consumed / Burned */}
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: spacing.lg }}>
+                    <MiniStat
+                      label="Consumed"
+                      value={formatCalories(consumed)}
+                      unit="kcal"
+                      accentColor={colors.accent.primary}
+                      muteColor={colors.accent.primaryMuted}
+                    />
+                    <MiniStat
+                      label="Burned"
+                      value={formatCalories(exerciseCalories)}
+                      unit="kcal"
+                      accentColor={colors.intensity.primary}
+                      muteColor={colors.intensity.muted}
+                    />
+                  </View>
+
+                  {/* Macros */}
+                  <View style={{ marginTop: spacing.lg }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm }}>
+                      <Text style={typography.label}>Macros</Text>
+                      <Text style={[typography.caption, { color: colors.text.disabled }]}>g · % target</Text>
+                    </View>
+                    <MacroProgressRow name="Protein" val={proteinG}  target={macroTargets.protein} color={colors.accent.primary} />
+                    <MacroProgressRow name="Carbs"   val={carbsG}    target={macroTargets.carbs}   color="#A78BFA" />
+                    <MacroProgressRow name="Fat"     val={fatG}      target={macroTargets.fat}     color={colors.intensity.primary} />
+                  </View>
+                </>
+              )}
+            </LinearGradient>
+          </View>
+
+          {/* ── Movement card (shown when exercise logged) ── */}
+          {exerciseCalories > 0 && (
+            <View style={{
+              borderRadius: radius.lg,
+              borderWidth: 1,
+              borderColor: 'rgba(255, 155, 90, 0.20)',
+              overflow: 'hidden',
+            }}>
+              <LinearGradient
+                colors={['#15181E', '#1E1408']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0.3, y: 1 }}
+                style={{ padding: spacing.xl }}
+              >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={typography.label}>Movement</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, marginTop: spacing.sm }}>
+                      <Text style={typography.metricMd}>{formatCalories(exerciseCalories)}</Text>
+                      <Text style={[typography.bodySm, { color: colors.text.tertiary }]}>kcal burned</Text>
+                    </View>
+                  </View>
+                  <View style={{
+                    width: 44, height: 44, borderRadius: radius.md,
+                    backgroundColor: colors.intensity.muted,
+                    alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <Ionicons name="barbell-outline" size={22} color={colors.intensity.primary} />
+                  </View>
+                </View>
+              </LinearGradient>
+            </View>
+          )}
+
+          {/* ── Meals ── */}
+          <View>
+            <View style={{
+              flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline',
+              marginBottom: spacing.md, marginTop: spacing.xs,
+            }}>
+              <Text style={typography.h3}>Meals</Text>
+              <Text style={typography.caption}>{meals.length} logged</Text>
+            </View>
+
             {meals.length === 0 ? (
-              <EmptyState
-                title="No meals logged"
-                message="Use the Log tab to add your first meal and the day summary will populate here."
-              />
+              <View style={{
+                padding: spacing.xl,
+                borderRadius: radius.lg,
+                borderWidth: 1,
+                borderStyle: 'dashed',
+                borderColor: colors.border.default,
+                alignItems: 'center',
+              }}>
+                <Text style={[typography.bodySm, { color: colors.text.tertiary, textAlign: 'center' }]}>
+                  No meals logged yet
+                </Text>
+              </View>
             ) : (
-              <View style={{ gap: spacing.md }}>
+              <View style={{ gap: spacing.sm }}>
                 {meals.map((meal) => (
                   <MealCard
                     key={meal.id}
@@ -204,75 +368,103 @@ function TodayScreenContent() {
               </View>
             )}
           </View>
-
-          <Surface elevated>
-            <Text style={typography.h2}>This week</Text>
-            <Text style={[typography.caption, { marginTop: spacing.xs }]}>
-              Daily intake pattern across the last seven entries.
-            </Text>
-            <View style={{ marginTop: spacing.lg }}>
-              <WeeklyChart
-                data={weeklyData
-                  .filter((d) => d.log_date != null && d.total_calories != null)
-                  .map((d) => ({
-                    log_date: d.log_date as string,
-                    total_calories: Number(d.total_calories) || 0,
-                  }))}
-              />
-            </View>
-          </Surface>
         </View>
       </ScrollView>
 
-      {
-        pendingMealDelete ? (
-          <UndoToast
-            message={`${pendingMealDelete.meal_label ?? 'Meal'} will be deleted`}
-            onUndo={handleUndoMealDelete}
-          />
-        ) : null
-      }
-    </Screen >
+      {pendingMealDelete ? (
+        <UndoToast
+          message={`${pendingMealDelete.meal_label ?? 'Meal'} will be deleted`}
+          onUndo={handleUndoMealDelete}
+        />
+      ) : null}
+    </Screen>
   );
 }
 
-function MetricCard({
-  label,
-  value,
-  tone = 'default',
-}: {
-  label: string;
-  value: string;
-  tone?: 'default' | 'accent';
-}) {
+// ── Net ring (small, shows % only) ──────────────────────────────────────────
+function NetRing({ pct }: { pct: number }) {
+  const size = 72;
+  const strokeWidth = 6;
+  const margin = strokeWidth / 2 + 2;
+  const rect = { x: margin, y: margin, width: size - margin * 2, height: size - margin * 2 };
+
+  const bgPath = Skia.Path.Make();
+  bgPath.addArc(rect, -90, 359.99);
+
+  const fillDeg = Math.max(0.01, Math.min(359.99, pct * 359.99));
+  const fgPath = Skia.Path.Make();
+  fgPath.addArc(rect, -90, fillDeg);
+
   return (
-    <View
-      style={{
-        flex: 1,
-        minHeight: 88,
-        borderRadius: radius.md,
-        borderWidth: 1,
-        borderColor: tone === 'accent' ? colors.accent.primary : colors.border.subtle,
-        backgroundColor: tone === 'accent' ? colors.accent.primaryMuted : colors.bg.surface,
-        padding: spacing.lg,
-        justifyContent: 'space-between',
-      }}
-    >
-      <Text style={typography.caption}>{label}</Text>
-      <Text
-        style={[
-          typography.h3,
-          {
-            fontVariant: ['tabular-nums'],
-          },
-        ]}
-      >
-        {value}
-      </Text>
+    <View style={{ width: size, height: size, position: 'relative', marginLeft: spacing.md }}>
+      <Canvas style={{ width: size, height: size }}>
+        <Path path={bgPath} style="stroke" strokeWidth={strokeWidth} color={colors.bg.surfaceOverlay} strokeCap="round" />
+        <Path path={fgPath} style="stroke" strokeWidth={strokeWidth} color={colors.accent.primary} strokeCap="round" />
+      </Canvas>
+      <View style={{
+        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+        alignItems: 'center', justifyContent: 'center',
+      }}>
+        <Text style={{
+          fontSize: 13, fontWeight: '600',
+          fontFamily: fontFamily.displaySemi,
+          color: colors.text.primary,
+          fontVariant: ['tabular-nums'],
+        }}>
+          {Math.round(pct * 100)}%
+        </Text>
+      </View>
     </View>
   );
 }
 
+// ── Mini stat cards in hero ─────────────────────────────────────────────────
+function MiniStat({
+  label, value, unit, accentColor,
+}: {
+  label: string; value: string; unit: string; accentColor: string; muteColor: string;
+}) {
+  return (
+    <View style={{
+      flex: 1,
+      padding: spacing.md,
+      backgroundColor: colors.bg.surfaceRaised,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border.subtle,
+    }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.sm }}>
+        <View style={{ width: 6, height: 6, borderRadius: radius.pill, backgroundColor: accentColor }} />
+        <Text style={typography.label}>{label}</Text>
+      </View>
+      <Text style={typography.metricMd}>{value}</Text>
+      <Text style={[typography.caption, { marginTop: 2 }]}>{unit}</Text>
+    </View>
+  );
+}
+
+// ── Macro progress row ───────────────────────────────────────────────────────
+function MacroProgressRow({ name, val, target, color }: {
+  name: string; val: number; target: number; color: string;
+}) {
+  const pct = target > 0 ? Math.min(1, val / target) : 0;
+  return (
+    <View style={{ marginTop: spacing.sm }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
+        <Text style={[typography.bodySm, { fontFamily: fontFamily.medium, color: colors.text.secondary }]}>{name}</Text>
+        <Text style={[typography.caption, { fontVariant: ['tabular-nums'] }]}>
+          <Text style={{ color: colors.text.primary, fontFamily: fontFamily.monoMedium }}>{Math.round(val)}</Text>
+          <Text style={{ color: colors.text.disabled }}>/{Math.round(target)}g · {Math.round(pct * 100)}%</Text>
+        </Text>
+      </View>
+      <View style={{ height: 5, backgroundColor: colors.bg.surfaceOverlay, borderRadius: 3, overflow: 'hidden' }}>
+        <View style={{ width: `${pct * 100}%`, height: '100%', backgroundColor: color, borderRadius: 3 }} />
+      </View>
+    </View>
+  );
+}
+
+// ── Meal card ────────────────────────────────────────────────────────────────
 type MealCardProps = {
   meal: MealWithItems;
   onDelete: () => void;
@@ -283,91 +475,70 @@ function MealCard({ meal, onDelete, isPendingDelete = false }: MealCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   const totalCalories = meal.meal_items.reduce((sum, item) => sum + item.calories, 0);
-  const foodNames = meal.meal_items.map((i) => i.food_name);
-  const previewNames = foodNames.slice(0, 3);
+  const totalProtein  = meal.meal_items.reduce((sum, item) => sum + (item.protein_g ?? 0), 0);
+  const foodNames     = meal.meal_items.map((i) => i.food_name);
 
   return (
     <Animated.View layout={LinearTransition.duration(180)}>
-      <Surface style={{ padding: 0, overflow: 'hidden' }} elevated={expanded}>
+      <View style={{
+        backgroundColor: colors.bg.surface,
+        borderRadius: radius.lg,
+        borderWidth: 1,
+        borderColor: colors.border.subtle,
+        overflow: 'hidden',
+      }}>
         <Pressable
           onPress={() => setExpanded((v) => !v)}
           accessibilityRole="button"
           accessibilityLabel={meal.meal_label ?? `Meal ${meal.sort_order}`}
-          accessibilityHint={expanded ? 'Tap to collapse meal details' : 'Tap to expand meal details'}
           accessibilityState={{ expanded }}
           style={{
             paddingHorizontal: spacing.lg,
-            paddingVertical: spacing.lg,
+            paddingVertical: spacing.md,
+            flexDirection: 'row',
+            alignItems: 'center',
             gap: spacing.md,
           }}
         >
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: spacing.md,
-            }}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={typography.h3}>
-                {meal.meal_label ?? `Meal ${meal.sort_order}`}
-              </Text>
-              <Text style={[typography.caption, { marginTop: spacing.xs }]}>
-                {format(new Date(meal.logged_at), 'HH:mm')}
-              </Text>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text
-                style={[
-                  typography.label,
-                  {
-                    fontVariant: ['tabular-nums'],
-                  },
-                ]}
-              >
-                {formatCalories(totalCalories)} kcal
-              </Text>
-              <Ionicons
-                name={expanded ? 'chevron-up' : 'chevron-down'}
-                size={18}
-                color={colors.text.tertiary}
-                style={{ marginTop: spacing.xs }}
-              />
-            </View>
+          {/* Time */}
+          <Text style={{
+            width: 40,
+            fontSize: 12, fontFamily: fontFamily.monoMedium,
+            color: colors.text.disabled,
+            fontVariant: ['tabular-nums'],
+          }}>
+            {format(new Date(meal.logged_at), 'HH:mm')}
+          </Text>
+
+          {/* Name + preview */}
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[typography.bodySm, { fontFamily: fontFamily.medium, color: colors.text.primary }]}>
+              {meal.meal_label ?? `Meal ${meal.sort_order}`}
+            </Text>
+            <Text
+              style={[typography.caption, { marginTop: 2 }]}
+              numberOfLines={1}
+            >
+              {foodNames.slice(0, 3).join(' · ')}
+              {foodNames.length > 3 ? ` +${foodNames.length - 3}` : ''}
+            </Text>
           </View>
 
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-            {previewNames.map((name, idx) => (
-              <View
-                key={`${name}-${idx}`}
-                style={{
-                  paddingHorizontal: spacing.md,
-                  paddingVertical: spacing.sm,
-                  borderRadius: radius.pill,
-                  backgroundColor: colors.bg.surfaceRaised,
-                  borderWidth: 1,
-                  borderColor: colors.border.subtle,
-                }}
-              >
-                <Text style={typography.caption}>{name}</Text>
-              </View>
-            ))}
-            {foodNames.length > 3 ? (
-              <View
-                style={{
-                  paddingHorizontal: spacing.md,
-                  paddingVertical: spacing.sm,
-                  borderRadius: radius.pill,
-                  backgroundColor: colors.bg.surfaceRaised,
-                  borderWidth: 1,
-                  borderColor: colors.border.subtle,
-                }}
-              >
-                <Text style={typography.caption}>+{foodNames.length - 3} more</Text>
-              </View>
-            ) : null}
+          {/* Calories + protein */}
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={[typography.metricSm, { color: colors.text.primary }]}>
+              {formatCalories(totalCalories)}
+            </Text>
+            <Text style={[typography.caption, { marginTop: 1 }]}>
+              kcal · {Math.round(totalProtein)}P
+            </Text>
           </View>
+
+          <Ionicons
+            name={expanded ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={colors.text.disabled}
+          />
         </Pressable>
 
         {expanded ? (
@@ -379,14 +550,13 @@ function MealCard({ meal, onDelete, isPendingDelete = false }: MealCardProps) {
               borderTopColor: colors.border.subtle,
               paddingHorizontal: spacing.lg,
               paddingBottom: spacing.lg,
-              gap: spacing.sm,
+              gap: spacing.xs,
             }}
           >
             {meal.meal_items.map((item) => (
               <View
                 key={item.id}
                 style={{
-                  minHeight: 52,
                   paddingTop: spacing.md,
                   flexDirection: 'row',
                   justifyContent: 'space-between',
@@ -395,21 +565,11 @@ function MealCard({ meal, onDelete, isPendingDelete = false }: MealCardProps) {
               >
                 <View style={{ flex: 1 }}>
                   <Text style={typography.bodySm}>{item.food_name}</Text>
-                  {item.amount_g != null ? (
-                    <Text style={[typography.caption, { marginTop: spacing.xs }]}>
-                      {item.amount_g}g
-                    </Text>
-                  ) : null}
+                  {item.amount_g != null && (
+                    <Text style={[typography.caption, { marginTop: 2 }]}>{item.amount_g}g</Text>
+                  )}
                 </View>
-                <Text
-                  style={[
-                    typography.caption,
-                    {
-                      color: colors.text.secondary,
-                      fontVariant: ['tabular-nums'],
-                    },
-                  ]}
-                >
+                <Text style={[typography.caption, { color: colors.text.secondary, fontVariant: ['tabular-nums'] }]}>
                   {formatCalories(item.calories)} kcal
                 </Text>
               </View>
@@ -422,65 +582,7 @@ function MealCard({ meal, onDelete, isPendingDelete = false }: MealCardProps) {
             />
           </Animated.View>
         ) : null}
-      </Surface>
+      </View>
     </Animated.View>
-  );
-}
-
-function DateNav({
-  atToday,
-  onPrev,
-  onNext,
-}: {
-  atToday: boolean;
-  onPrev: () => void;
-  onNext: () => void;
-}) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-      <Pressable
-        onPress={onPrev}
-        hitSlop={{ top: 12, bottom: 12, left: 12, right: 8 }}
-        accessibilityRole="button"
-        accessibilityLabel="Previous day"
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: radius.pill,
-          backgroundColor: colors.bg.surfaceRaised,
-          borderWidth: 1,
-          borderColor: colors.border.default,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Ionicons name="chevron-back" size={16} color={colors.text.secondary} />
-      </Pressable>
-      <Pressable
-        onPress={() => {
-          if (!atToday) onNext();
-        }}
-        hitSlop={{ top: 12, bottom: 12, left: 8, right: 12 }}
-        accessibilityRole="button"
-        accessibilityLabel="Next day"
-        accessibilityState={{ disabled: atToday }}
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: radius.pill,
-          backgroundColor: atToday ? colors.bg.surface : colors.bg.surfaceRaised,
-          borderWidth: 1,
-          borderColor: atToday ? colors.border.subtle : colors.border.default,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Ionicons
-          name="chevron-forward"
-          size={16}
-          color={atToday ? colors.text.disabled : colors.text.secondary}
-        />
-      </Pressable>
-    </View>
   );
 }

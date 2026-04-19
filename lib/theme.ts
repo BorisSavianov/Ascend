@@ -1,48 +1,56 @@
 import { Platform, type TextStyle, type ViewStyle } from 'react-native';
 
 // ---------------------------------------------------------------------------
-// Colors
+// Colors — Ascend redesign: warmer blacks, dual domain accents, higher contrast
 // ---------------------------------------------------------------------------
 
 export const colors = {
   bg: {
-    canvas:         '#060810',
-    base:           '#0B1018',
-    surface:        '#111822',
-    surfaceRaised:  '#172030',
-    surfaceOverlay: '#1C2840',
-    input:          '#0D1520',
+    canvas:         '#08090C',
+    base:           '#0E1014',
+    surface:        '#15181E',
+    surfaceRaised:  '#1C2028',
+    surfaceOverlay: '#242934',
+    input:          '#10131A',
   },
   border: {
-    subtle:  '#202A36',
-    default: '#2B3644',
-    strong:  '#3A4759',
+    subtle:  '#1E222B',
+    default: '#2A2F3A',
+    strong:  '#3A414F',
   },
   text: {
-    primary:  '#F5F7FA',
-    secondary: '#B5BFCA',
-    tertiary:  '#8E9BAB',
-    disabled:  '#5E6773',
+    primary:   '#F2F4F7',
+    secondary: '#C4C9D2',
+    tertiary:  '#8890A0',
+    disabled:  '#565D6B',
   },
-  // Blue accent — nutrition, navigation, calm states
+  // Nutrition domain — cool, calm, data
   accent: {
-    primary:       '#7EA6FF',
-    primaryPressed: '#6B94F0',
-    primaryMuted:  'rgba(126, 166, 255, 0.14)',
-    primaryGlow:   'rgba(126, 166, 255, 0.06)',
+    primary:        '#8FB3FF',
+    primaryPressed: '#7A9FEF',
+    primaryMuted:   'rgba(143, 179, 255, 0.14)',
+    primaryGlow:    'rgba(143, 179, 255, 0.08)',
+    ink:            '#0A1530',
   },
-  // Amber accent — workout/intensity states (Move tab, session screen)
+  // Movement domain — warm, kinetic, effort
   intensity: {
-    primary:  '#FF8C3A',
-    pressed:  '#E87C2E',
-    muted:    'rgba(255, 140, 58, 0.14)',
-    glow:     'rgba(255, 140, 58, 0.06)',
+    primary:  '#FF9B5A',
+    pressed:  '#E8864A',
+    muted:    'rgba(255, 155, 90, 0.14)',
+    glow:     'rgba(255, 155, 90, 0.08)',
+    ink:      '#2A1508',
+  },
+  // Neutral CTA — white button used across both domains
+  cta: {
+    bg:      '#F2F4F7',
+    pressed: '#D8DDE5',
+    ink:     '#0E1014',
   },
   semantic: {
-    success: '#30D158',
-    warning: '#FFD60A',
-    danger:  '#FF453A',
-    info:    '#64D2FF',
+    success: '#4ADE80',
+    warning: '#FACC15',
+    danger:  '#FF5C57',
+    info:    '#7DD3FC',
   },
   overlay: 'rgba(0, 0, 0, 0.58)',
 } as const;
@@ -68,35 +76,34 @@ export const spacing = {
 // ---------------------------------------------------------------------------
 
 export const radius = {
-  xs:   8,
-  sm:   12,
-  md:   16,
-  lg:   20,
-  xl:   28,
+  xs:   6,
+  sm:   10,
+  md:   14,
+  lg:   18,
+  xl:   24,
   pill: 999,
 } as const;
 
 // ---------------------------------------------------------------------------
-// Typography — font families
-// Loaded via expo-font in app/_layout.tsx. These strings match the export
-// names from @expo-google-fonts/* packages exactly.
+// Typography — IBM Plex Sans (single family) + IBM Plex Mono (numeric data)
+// Loaded via expo-font in app/_layout.tsx.
 // ---------------------------------------------------------------------------
 
 export const fontFamily = {
-  // Headings / display — athletic, condensed
-  displayRegular: 'BarlowSemiCondensed_400Regular',
-  displayMedium:  'BarlowSemiCondensed_500Medium',
-  displaySemi:    'BarlowSemiCondensed_600SemiBold',
-  displayBold:    'BarlowSemiCondensed_700Bold',
-  // Body / UI — warm, legible
-  regular: 'DMSans_400Regular',
-  medium:  'DMSans_500Medium',
-  // Data / Metrics — tabular, technical
-  monoRegular: 'DMMono_400Regular',
-  monoMedium:  'DMMono_500Medium',
+  // All display/heading/body — IBM Plex Sans
+  displayRegular: 'IBMPlexSans_400Regular',
+  displayMedium:  'IBMPlexSans_500Medium',
+  displaySemi:    'IBMPlexSans_600SemiBold',
+  displayBold:    'IBMPlexSans_700Bold',
+  regular:        'IBMPlexSans_400Regular',
+  medium:         'IBMPlexSans_500Medium',
+  semiBold:       'IBMPlexSans_600SemiBold',
+  // Tabular numeric data — IBM Plex Mono
+  monoRegular: 'IBMPlexMono_400Regular',
+  monoMedium:  'IBMPlexMono_500Medium',
 } as const;
 
-// Fallback families used before fonts load (prevents FOUC)
+// System fallbacks used before fonts load (prevents FOUC)
 const _systemBase = Platform.select({
   ios:     'System',
   android: 'sans-serif',
@@ -115,7 +122,7 @@ export const fontFamilyFallback = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// Typography tokens
+// Typography tokens — single-font scale, weight + size carry hierarchy
 // ---------------------------------------------------------------------------
 
 export type TypographyToken =
@@ -135,45 +142,51 @@ export type TypographyToken =
 export const typography: Record<TypographyToken, TextStyle> = {
   display: {
     fontFamily: fontFamily.displayBold,
-    fontSize:   36,
-    lineHeight: 40,
+    fontSize:   32,
+    lineHeight: 38,
+    letterSpacing: -0.5,
     color:      colors.text.primary,
   },
   h1: {
     fontFamily: fontFamily.displaySemi,
-    fontSize:   30,
-    lineHeight: 36,
+    fontSize:   28,
+    lineHeight: 34,
+    letterSpacing: -0.4,
     color:      colors.text.primary,
   },
   h2: {
     fontFamily: fontFamily.displaySemi,
-    fontSize:   22,
-    lineHeight: 28,
+    fontSize:   20,
+    lineHeight: 26,
+    letterSpacing: -0.2,
     color:      colors.text.primary,
   },
   h3: {
-    fontFamily: fontFamily.medium,
-    fontSize:   18,
-    lineHeight: 24,
+    fontFamily: fontFamily.displaySemi,
+    fontSize:   16,
+    lineHeight: 22,
+    letterSpacing: 0,
     color:      colors.text.primary,
   },
   body: {
     fontFamily: fontFamily.regular,
-    fontSize:   16,
+    fontSize:   15,
     lineHeight: 22,
     color:      colors.text.primary,
   },
   bodySm: {
     fontFamily: fontFamily.regular,
-    fontSize:   14,
-    lineHeight: 20,
+    fontSize:   13,
+    lineHeight: 18,
     color:      colors.text.secondary,
   },
   label: {
-    fontFamily: fontFamily.medium,
-    fontSize:   13,
-    lineHeight: 16,
-    color:      colors.text.secondary,
+    fontFamily:    fontFamily.medium,
+    fontSize:      12,
+    lineHeight:    16,
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+    color:         colors.text.tertiary,
   },
   caption: {
     fontFamily: fontFamily.regular,
@@ -181,30 +194,33 @@ export const typography: Record<TypographyToken, TextStyle> = {
     lineHeight: 16,
     color:      colors.text.tertiary,
   },
-  // Metric tokens — always DM Mono, always tabular-nums
+  // Metric tokens — IBM Plex Sans with tabular-nums feature
   metricHero: {
-    fontFamily:  fontFamily.monoMedium,
+    fontFamily:  fontFamily.displayMedium,
     fontSize:    52,
     lineHeight:  52,
+    letterSpacing: -1.5,
     color:       colors.text.primary,
     fontVariant: ['tabular-nums'],
   },
   metricLg: {
-    fontFamily:  fontFamily.monoMedium,
-    fontSize:    36,
+    fontFamily:  fontFamily.displayMedium,
+    fontSize:    34,
     lineHeight:  38,
+    letterSpacing: -0.8,
     color:       colors.text.primary,
     fontVariant: ['tabular-nums'],
   },
   metricMd: {
-    fontFamily:  fontFamily.monoRegular,
-    fontSize:    24,
-    lineHeight:  28,
+    fontFamily:  fontFamily.displayMedium,
+    fontSize:    22,
+    lineHeight:  26,
+    letterSpacing: -0.3,
     color:       colors.text.primary,
     fontVariant: ['tabular-nums'],
   },
   metricSm: {
-    fontFamily:  fontFamily.monoRegular,
+    fontFamily:  fontFamily.monoMedium,
     fontSize:    14,
     lineHeight:  18,
     color:       colors.text.secondary,
@@ -214,39 +230,22 @@ export const typography: Record<TypographyToken, TextStyle> = {
 
 // ---------------------------------------------------------------------------
 // Motion — timing durations + spring presets
-// Easing curves are applied at the call site (import Easing from
-// react-native-reanimated) using the semantic names documented below:
-//
-//   out       → Easing.out(Easing.cubic)       — most UI transitions
-//   outQuart  → Easing.out(Easing.poly(4))     — content reveals
-//   inOut     → Easing.inOut(Easing.cubic)     — bidirectional (toggles)
-//   linear    → Easing.linear                  — continuous (timers, loading)
 // ---------------------------------------------------------------------------
 
 export const motion = {
-  // Durations (ms)
-  instant:     50,   // Haptic-synced micro feedback
-  fast:        100,  // Press states, small toggles
-  standard:    220,  // Screen element entry, tab content
-  deliberate:  350,  // Modals, sheets, significant reveals
-  celebration: 600,  // Workout completion, achievements
-
-  // Scale on press — slightly more tactile than before
-  pressScale: 0.96,
-
-  // Backward-compat aliases (used by components not yet updated to new tokens)
+  instant:     50,
+  fast:        100,
+  standard:    220,
+  deliberate:  350,
+  celebration: 600,
+  pressScale:  0.96,
+  // Backward-compat aliases
   medium: 140,
   slow:   200,
-
-  // Spring presets — pass as second arg to withSpring()
   spring: {
-    // Gesture snap-to / tab indicator
     snappy:  { damping: 28, stiffness: 400, mass: 0.8 },
-    // Standard UI spring
     default: { damping: 22, stiffness: 280, mass: 0.9 },
-    // Content reveals
     gentle:  { damping: 18, stiffness: 200, mass: 1.0 },
-    // Celebration / achievement
     bouncy:  { damping: 12, stiffness: 180, mass: 0.8 },
   },
 } as const;
@@ -285,16 +284,15 @@ export const shadows = {
     shadowOffset:  { width: 0, height: 16 },
     elevation:     20,
   } satisfies ViewStyle,
-  // Colored glow — for hero cards and feature surfaces
   accentGlow: {
-    shadowColor:   '#7EA6FF',
+    shadowColor:   '#8FB3FF',
     shadowOpacity: 0.20,
     shadowRadius:  20,
     shadowOffset:  { width: 0, height: 0 },
     elevation:     0,
   } satisfies ViewStyle,
   intensityGlow: {
-    shadowColor:   '#FF8C3A',
+    shadowColor:   '#FF9B5A',
     shadowOpacity: 0.20,
     shadowRadius:  20,
     shadowOffset:  { width: 0, height: 0 },
@@ -304,17 +302,12 @@ export const shadows = {
 
 // ---------------------------------------------------------------------------
 // Gradient surface stop-pairs
-// Pass these to expo-linear-gradient's `colors` prop.
 // ---------------------------------------------------------------------------
 
 export const gradients = {
-  // Today screen — calorie ring hero card (cool blue depth)
-  nutrition: [colors.bg.surface, '#14203A'] as const,
-  // Workout session / Move screen cards (warm amber depth)
-  intensity: [colors.bg.surface, '#201610'] as const,
-  // Insights screen (subtle cool tint)
+  nutrition: [colors.bg.surface, '#12203A'] as const,
+  intensity: [colors.bg.surface, '#1E1408'] as const,
   insights:  [colors.bg.surface, '#121A24'] as const,
-  // Generic elevated surface
   raised:    [colors.bg.surface, colors.bg.surfaceRaised] as const,
 } as const;
 
@@ -329,7 +322,6 @@ export function alpha(hexColor: string, opacity: number): string {
   return `#${clean}${value.toString(16).padStart(2, '0')}`;
 }
 
-/** Returns a metric TextStyle, defaulting to metricSm for inline use. */
 export function metricStyle(size: 'sm' | 'md' | 'lg' | 'hero' = 'sm'): TextStyle {
   const map = {
     hero: typography.metricHero,

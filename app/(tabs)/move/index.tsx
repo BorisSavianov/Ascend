@@ -13,7 +13,6 @@ import { router } from 'expo-router';
 import ExerciseRowComponent from '../../../components/ExerciseRow';
 import { useExercises } from '../../../hooks/useExercises';
 import { useLogExercise } from '../../../hooks/useLogExercise';
-import { useDailySummary } from '../../../hooks/useDailySummary';
 import { useTodayAssignment } from '../../../hooks/useTodayAssignment';
 import { useWorkoutPresets } from '../../../hooks/useWorkoutPresets';
 import { useActiveWorkoutSession } from '../../../hooks/useActiveWorkoutSession';
@@ -28,7 +27,6 @@ import { estimateCalories } from '../../../lib/calorieEstimator';
 import { useBodyWeightKg } from '../../../hooks/useBodyWeightKg';
 import type { ExerciseRow } from '../../../types/database';
 import Screen from '../../../components/ui/Screen';
-import AppHeader from '../../../components/ui/AppHeader';
 import Chip from '../../../components/ui/Chip';
 import Surface from '../../../components/ui/Surface';
 import TextField from '../../../components/ui/TextField';
@@ -79,7 +77,6 @@ function MoveScreenContent() {
 
   // ── Cardio logger data ──────────────────────────────────────────────────────
   const { data: exercises = [] } = useExercises(today);
-  const { data: summary } = useDailySummary(today);
   const { mutate: logExercise, isPending } = useLogExercise();
 
   const [selectedPreset, setSelectedPreset] = useState<Preset | null>(null);
@@ -210,9 +207,6 @@ function MoveScreenContent() {
     setIsSeeding(false);
   }
 
-  const totalFoodCalories = summary?.total_calories ?? 0;
-  const totalExerciseCalories = exercises.reduce((sum, e) => sum + (e.calories_burned ?? 0), 0);
-  const netCalories = totalFoodCalories - totalExerciseCalories;
   const canLog =
     name.trim().length > 0 && parseInt(durationText, 10) > 0 && parseInt(caloriesText, 10) >= 0;
 
@@ -225,11 +219,21 @@ function MoveScreenContent() {
         <UndoToast message={`"${pendingDelete.name}" will be deleted`} onUndo={handleUndo} />
       ) : null}
 
-      <AppHeader
-        title="Move"
-        eyebrow={format(today, 'EEEE, d MMMM')}
-        subtitle="Today's workout"
-      />
+      <View style={{
+        paddingHorizontal: spacing.xl,
+        paddingTop: spacing.xl,
+        paddingBottom: spacing.md,
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+      }}>
+        <View>
+          <Text style={[typography.label, { color: colors.text.tertiary, marginBottom: spacing.xs }]}>
+            {format(today, "EEE · d MMM · 'Wk' w")}
+          </Text>
+          <Text style={typography.h1}>Move</Text>
+        </View>
+      </View>
 
       <View style={{ paddingHorizontal: spacing.xl, gap: spacing.xl }}>
 
@@ -408,24 +412,6 @@ function MoveScreenContent() {
           </Animated.View>
         )}
 
-        {/* ── Net energy summary ──────────────────────────────────────────────── */}
-        <Surface>
-          <Text style={typography.h3}>Net energy today</Text>
-          <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg }}>
-            <SummaryCard label="Food" value={`${Math.round(totalFoodCalories)}`} />
-            <SummaryCard
-              label="Exercise"
-              value={`${Math.round(totalExerciseCalories)}`}
-              tint={colors.semantic.warning}
-            />
-            <SummaryCard
-              label="Net"
-              value={`${Math.round(netCalories)}`}
-              tint={colors.accent.primary}
-            />
-          </View>
-        </Surface>
-
         {/* ── Cardio Logger (collapsible) ─────────────────────────────────────── */}
         <View>
           <Pressable
@@ -567,41 +553,3 @@ function MoveScreenContent() {
   );
 }
 
-function SummaryCard({
-  label,
-  value,
-  tint = colors.text.primary,
-}: {
-  label: string;
-  value: string;
-  tint?: string;
-}) {
-  return (
-    <View
-      style={{
-        flex: 1,
-        minHeight: 84,
-        borderRadius: radius.md,
-        borderWidth: 1,
-        borderColor: colors.border.subtle,
-        backgroundColor: colors.bg.surfaceRaised,
-        padding: spacing.lg,
-        justifyContent: 'space-between',
-      }}
-    >
-      <Text style={typography.caption}>{label}</Text>
-      <Text
-        style={[
-          typography.h3,
-          {
-            color: tint,
-            fontFamily: fontFamily.monoMedium,
-            fontVariant: ['tabular-nums'],
-          },
-        ]}
-      >
-        {value}
-      </Text>
-    </View>
-  );
-}

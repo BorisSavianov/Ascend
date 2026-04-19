@@ -25,19 +25,15 @@ import { colors } from '../lib/theme';
 // Font loading
 import { useFonts } from 'expo-font';
 import {
-  BarlowSemiCondensed_400Regular,
-  BarlowSemiCondensed_500Medium,
-  BarlowSemiCondensed_600SemiBold,
-  BarlowSemiCondensed_700Bold,
-} from '@expo-google-fonts/barlow-semi-condensed';
+  IBMPlexSans_400Regular,
+  IBMPlexSans_500Medium,
+  IBMPlexSans_600SemiBold,
+  IBMPlexSans_700Bold,
+} from '@expo-google-fonts/ibm-plex-sans';
 import {
-  DMSans_400Regular,
-  DMSans_500Medium,
-} from '@expo-google-fonts/dm-sans';
-import {
-  DMMono_400Regular,
-  DMMono_500Medium,
-} from '@expo-google-fonts/dm-mono';
+  IBMPlexMono_400Regular,
+  IBMPlexMono_500Medium,
+} from '@expo-google-fonts/ibm-plex-mono';
 
 // Keep splash screen visible until session check resolves
 void SplashScreen.preventAutoHideAsync();
@@ -55,14 +51,12 @@ export default function RootLayout() {
   const authReadyRef = useRef(false);
 
   const [fontsLoaded] = useFonts({
-    BarlowSemiCondensed_400Regular,
-    BarlowSemiCondensed_500Medium,
-    BarlowSemiCondensed_600SemiBold,
-    BarlowSemiCondensed_700Bold,
-    DMSans_400Regular,
-    DMSans_500Medium,
-    DMMono_400Regular,
-    DMMono_500Medium,
+    IBMPlexSans_400Regular,
+    IBMPlexSans_500Medium,
+    IBMPlexSans_600SemiBold,
+    IBMPlexSans_700Bold,
+    IBMPlexMono_400Regular,
+    IBMPlexMono_500Medium,
   });
 
   // Once fonts load, attempt to hide splash (both conditions must be true)
@@ -133,7 +127,7 @@ export default function RootLayout() {
             useAppStore.getState().fastingNearEndReminderEnabled,
           );
         }
-        router.replace('/(tabs)/log');
+        router.replace('/(tabs)/today');
       } else {
         router.replace('/(auth)/login');
       }
@@ -206,10 +200,10 @@ export default function RootLayout() {
                 useAppStore.getState().fastingNearEndReminderEnabled,
               );
             }
-            router.replace('/(tabs)/log');
+            router.replace('/(tabs)/today');
           }).catch((err) => {
             logger.warn('Auth init error:', err);
-            router.replace('/(tabs)/log');
+            router.replace('/(tabs)/today');
           });
         } else {
           router.replace('/(auth)/login');
