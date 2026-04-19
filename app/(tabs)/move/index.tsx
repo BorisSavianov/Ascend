@@ -353,9 +353,10 @@ function MoveScreenContent() {
 
                   {/* Exercise preview list (truncated at 5) */}
                   <View style={{ gap: spacing.sm }}>
-                    {preset.exercises.slice(0, 5).map((ex) => (
-                      <View
+                    {preset.exercises.slice(0, 5).map((ex, i) => (
+                      <Animated.View
                         key={ex.id}
+                        entering={FadeInDown.delay(i * 60).duration(250).springify()}
                         style={{
                           flexDirection: 'row',
                           justifyContent: 'space-between',
@@ -377,7 +378,7 @@ function MoveScreenContent() {
                         >
                           {ex.default_sets} × {ex.default_reps_min}–{ex.default_reps_max}
                         </Text>
-                      </View>
+                      </Animated.View>
                     ))}
                     {preset.exercises.length > 5 ? (
                       <Text style={[typography.caption, { color: colors.text.tertiary }]}>

@@ -575,8 +575,7 @@ function ExportSection() {
 
     setExporting(true);
     try {
-      const blob = await triggerExport(formatType, 30);
-      const text = await blob.text();
+      const text = await triggerExport(formatType, 30);
 
       const dir = FileSystem.cacheDirectory;
       if (!dir) throw new Error('Cache directory unavailable');

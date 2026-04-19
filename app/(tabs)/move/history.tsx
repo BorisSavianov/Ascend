@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { format, parseISO, subWeeks, startOfWeek, addDays, differenceInCalendarDays } from 'date-fns';
 import { CartesianChart, Line } from 'victory-native';
@@ -23,6 +24,7 @@ const CELL_SIZE = 22;
 const CELL_GAP = 3;
 
 export default function WorkoutHistoryScreen() {
+  const today = new Date();
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<WorkoutSessionWithExercises | null>(null);
 
@@ -77,7 +79,7 @@ export default function WorkoutHistoryScreen() {
 
   return (
     <Screen>
-      <AppHeader title="Move" eyebrow="History" />
+      <AppHeader title="Move" eyebrow={format(today, 'EEEE, d MMMM')} subtitle="Workout history" />
 
       <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.md }}>
         <SegmentedControl
@@ -173,47 +175,48 @@ export default function WorkoutHistoryScreen() {
               </Text>
             </Surface>
           ) : (
-            filteredSessions.map((session) => (
-              <Pressable
-                key={session.id}
-                onPress={() => setSelectedSession(session)}
-                style={{
-                  borderRadius: radius.lg,
-                  borderWidth: 1,
-                  borderColor: colors.border.subtle,
-                  backgroundColor: colors.bg.surface,
-                  padding: spacing.lg,
-                  gap: spacing.xs,
-                }}
-              >
-                <View
+            filteredSessions.map((session, i) => (
+              <Animated.View key={session.id} entering={FadeInDown.delay(i * 40).duration(200)}>
+                <Pressable
+                  onPress={() => setSelectedSession(session)}
                   style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
+                    borderRadius: radius.lg,
+                    borderWidth: 1,
+                    borderColor: colors.border.subtle,
+                    backgroundColor: colors.bg.surface,
+                    padding: spacing.lg,
+                    gap: spacing.xs,
                   }}
                 >
-                  <Text style={typography.label}>
-                    {format(parseISO(session.date), 'EEE, d MMM')}
-                  </Text>
-                  {session.ended_at ? (
-                    <Text style={[typography.caption, { color: colors.text.tertiary }]}>
-                      {differenceInMinutes(parseISO(session.ended_at), parseISO(session.started_at))} min
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={typography.label}>
+                      {format(parseISO(session.date), 'EEE, d MMM')}
                     </Text>
-                  ) : null}
-                </View>
-                <Text style={[typography.caption, { color: colors.text.tertiary }]}>
-                  {session.session_snapshot?.preset_name ?? 'Ad-hoc workout'}
-                </Text>
-                <Text style={[typography.caption, { color: colors.text.disabled }]}>
-                  {session.logged_exercises.length} exercise{session.logged_exercises.length !== 1 ? 's' : ''}
-                  {' · '}
-                  {session.logged_exercises.reduce(
-                    (sum, le) => sum + le.logged_sets.filter((s) => s.is_completed).length,
-                    0,
-                  )} sets
-                </Text>
-              </Pressable>
+                    {session.ended_at ? (
+                      <Text style={[typography.caption, { color: colors.text.tertiary }]}>
+                        {differenceInMinutes(parseISO(session.ended_at), parseISO(session.started_at))} min
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text style={[typography.caption, { color: colors.text.tertiary }]}>
+                    {session.session_snapshot?.preset_name ?? 'Ad-hoc workout'}
+                  </Text>
+                  <Text style={[typography.caption, { color: colors.text.disabled }]}>
+                    {session.logged_exercises.length} exercise{session.logged_exercises.length !== 1 ? 's' : ''}
+                    {' · '}
+                    {session.logged_exercises.reduce(
+                      (sum, le) => sum + le.logged_sets.filter((s) => s.is_completed).length,
+                      0,
+                    )} sets
+                  </Text>
+                </Pressable>
+              </Animated.View>
             ))
           )}
         </View>

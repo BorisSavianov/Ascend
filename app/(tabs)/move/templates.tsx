@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
+  FadeInDown,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import { router } from 'expo-router';
+import { format } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
 import Screen from '../../../components/ui/Screen';
 import AppHeader from '../../../components/ui/AppHeader';
@@ -297,6 +299,7 @@ function NewWorkoutSheet({
 // ---------------------------------------------------------------------------
 
 export default function WorkoutTemplatesScreen() {
+  const today = new Date();
   const { data: weekAssignments = [] } = useWeekAssignments();
   const { data: presets = [], isLoading: presetsLoading } = useWorkoutPresets();
   const { mutate: upsertAssignment } = useUpsertDayAssignment();
@@ -366,7 +369,7 @@ export default function WorkoutTemplatesScreen() {
     <>
       <Screen scroll contentContainerStyle={{ paddingBottom: 132 }}>
         {/* Header */}
-        <AppHeader title="Move" eyebrow="Training" />
+        <AppHeader title="Move" eyebrow={format(today, 'EEEE, d MMMM')} subtitle="Templates" />
 
         {/* Segmented control */}
         <View style={{ paddingHorizontal: spacing.xl, marginBottom: spacing.xl }}>
@@ -498,34 +501,35 @@ export default function WorkoutTemplatesScreen() {
               </Surface>
             ) : (
               <View style={{ gap: spacing.sm }}>
-                {presets.map((preset) => (
-                  <Pressable
-                    key={preset.id}
-                    onPress={() =>
-                      router.push({
-                        pathname: '/preset/[presetId]',
-                        params: { presetId: preset.id, name: preset.name },
-                      })
-                    }
-                  >
-                    <Surface
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: spacing.md,
-                      }}
+                {presets.map((preset, i) => (
+                  <Animated.View key={preset.id} entering={FadeInDown.delay(i * 60).duration(250).springify()}>
+                    <Pressable
+                      onPress={() =>
+                        router.push({
+                          pathname: '/preset/[presetId]',
+                          params: { presetId: preset.id, name: preset.name },
+                        })
+                      }
                     >
-                      <Text style={[typography.h3, { flex: 1 }]} numberOfLines={1}>
-                        {preset.name}
-                      </Text>
-                      <Ionicons
-                        name="chevron-forward"
-                        size={16}
-                        color={colors.text.tertiary}
-                      />
-                    </Surface>
-                  </Pressable>
+                      <Surface
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: spacing.md,
+                        }}
+                      >
+                        <Text style={[typography.h3, { flex: 1 }]} numberOfLines={1}>
+                          {preset.name}
+                        </Text>
+                        <Ionicons
+                          name="chevron-forward"
+                          size={16}
+                          color={colors.text.tertiary}
+                        />
+                      </Surface>
+                    </Pressable>
+                  </Animated.View>
                 ))}
               </View>
             )}
