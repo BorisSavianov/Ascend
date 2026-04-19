@@ -4,6 +4,8 @@ import { ErrorBoundary } from '../../components/ErrorBoundary';
 import * as Haptics from 'expo-haptics';
 import {
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -68,15 +70,6 @@ function LogScreenContent() {
 
   // Sort order = next available slot (existing meals + 1)
   const sortOrder = todayMeals.length + 1;
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      searchInputRef.current?.focus();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, []);
-
-
 
   useEffect(() => {
     if (!toastMessage) return;
@@ -223,7 +216,11 @@ function LogScreenContent() {
 
   return (
     <Screen>
-      <View style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <View style={{ flex: 1 }}>
         <AppHeader
           title="Log meal"
           subtitle="Name your meal, search for foods, adjust portions, then commit."
@@ -375,6 +372,7 @@ function LogScreenContent() {
             )}
           </View>
         </View>
+        </View>
 
         <BottomActionBar>
           <View
@@ -427,7 +425,7 @@ function LogScreenContent() {
         </BottomActionBar>
 
         {toastMessage ? <Toast message={toastMessage} tone="success" /> : null}
-      </View>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }

@@ -72,7 +72,7 @@ export async function streamGeminiResponse(
 export async function triggerExport(
   format: "markdown" | "csv",
   days = 30
-): Promise<Blob> {
+): Promise<string> {
   const { data, error: sessionError } = await supabase.auth.getSession();
   if (sessionError || !data.session) throw new Error("Not authenticated");
   const session = data.session;
@@ -88,7 +88,7 @@ export async function triggerExport(
   });
 
   if (!response.ok) throw new Error(`Export failed: ${response.status}`);
-  return response.blob();
+  return response.text();
 }
 
 export async function sendMessage(params: {

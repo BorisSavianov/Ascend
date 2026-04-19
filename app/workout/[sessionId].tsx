@@ -113,7 +113,7 @@ export default function WorkoutSessionScreen() {
 
   const handleBackPress = useCallback(() => {
     if (!session) {
-      router.back();
+      router.replace('/(tabs)/move');
       return;
     }
     const anyIncomplete = session.logged_exercises.some((le) =>
@@ -140,7 +140,7 @@ export default function WorkoutSessionScreen() {
     finish(session.id, {
       onSuccess: () => {
         resetSession();
-        router.back();
+        router.replace('/(tabs)/move');
       },
     });
   }
