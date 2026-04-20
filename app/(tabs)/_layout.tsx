@@ -14,16 +14,14 @@ import { colors, fontFamily, motion, radius, shadows, spacing } from '../../lib/
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
-type TabEntry =
-  | { name: string; icon: IoniconName; label: string; activeColor: string; isFAB?: false }
-  | { name: string; isFAB: true };
+type TabEntry = { name: string; icon: IoniconName; label: string; activeColor: string; routeIndex: number; isFAB?: boolean };
 
+// Routes are indexed: 0=today, 1=move, 2=insights, 3=profile, 4=log (non-swipeable)
 const TAB_CONFIG: TabEntry[] = [
-  { name: 'today',    icon: 'calendar-outline',   label: 'Today',    activeColor: colors.accent.primary },
-  { name: 'move',     icon: 'barbell-outline',     label: 'Move',     activeColor: colors.intensity.primary },
-  { name: 'log',      isFAB: true },
-  { name: 'insights', icon: 'trending-up-outline', label: 'Insights', activeColor: colors.accent.primary },
-  { name: 'profile',  icon: 'person-outline',      label: 'Profile',  activeColor: colors.accent.primary },
+  { name: 'today',    icon: 'calendar-outline',   label: 'Today',    activeColor: colors.accent.primary, routeIndex: 0 },
+  { name: 'move',     icon: 'barbell-outline',     label: 'Move',     activeColor: colors.intensity.primary, routeIndex: 1 },
+  { name: 'insights', icon: 'trending-up-outline', label: 'Insights', activeColor: colors.accent.primary, routeIndex: 2 },
+  { name: 'profile',  icon: 'person-outline',      label: 'Profile',  activeColor: colors.accent.primary, routeIndex: 3 },
 ];
 
 const TAB_BAR_H   = 68;
@@ -36,26 +34,32 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const { width: screenWidth } = useWindowDimensions();
 
   const barWidth  = screenWidth - H_MARGIN * 2;
-  const tabWidth  = barWidth / TAB_CONFIG.length;
+  const tabWidth  = barWidth / 5; // 5 slots: Today, Move, FAB, Insights, Profile
   const indicatorW = 40;
 
-  // Only animate indicator for non-FAB positions
-  const visibleIndex = state.index === 2 ? -1 : state.index;
+  // Mapping state.index to visual position
+  // Routes: 0:today, 1:move, 2:insights, 3:profile, 4:log
+  // Visual: 0:today, 1:move, 2:log, 3:insights, 4:profile
+  const getVisualIndex = (index: number) => {
+    if (index === 4) return 2; // log is in the middle
+    if (index === 2) return 3; // insights is 4th
+    if (index === 3) return 4; // profile is 5th
+    return index; // today(0), move(1)
+  };
+
   const indicatorX = useSharedValue(
-    visibleIndex >= 0 ? visibleIndex * tabWidth + (tabWidth - indicatorW) / 2 : -100,
+    getVisualIndex(state.index) * tabWidth + (tabWidth - indicatorW) / 2,
   );
 
   useEffect(() => {
-    const idx = state.index === 2 ? -1 : state.index;
     indicatorX.value = withSpring(
-      idx >= 0 ? idx * tabWidth + (tabWidth - indicatorW) / 2 : -100,
+      getVisualIndex(state.index) * tabWidth + (tabWidth - indicatorW) / 2,
       motion.spring.snappy,
     );
   }, [state.index, tabWidth, indicatorX]);
 
   const indicatorStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: indicatorX.value }],
-    opacity: withTiming(state.index === 2 ? 0 : 1, { duration: 150 }),
   }));
 
   // Slide off-screen when keyboard is visible
@@ -117,44 +121,23 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
         ]}
       />
 
-      {TAB_CONFIG.map((tab, index) => {
-        const focused = state.index === index;
-
-        if ('isFAB' in tab && tab.isFAB) {
-          return (
-            <FABButton
-              key={tab.name}
-              tabWidth={tabWidth}
-              onPress={() => {
-                const event = navigation.emit({
-                  type: 'tabPress',
-                  target: state.routes[index]?.key ?? '',
-                  canPreventDefault: true,
-                });
-                if (!focused && !event.defaultPrevented) {
-                  navigation.navigate(tab.name);
-                }
-              }}
-            />
-          );
-        }
-
-        const iconColor = focused
-          ? (tab as Exclude<TabEntry, { isFAB: true }>).activeColor
-          : colors.text.disabled;
+      {/* Left tabs: Today, Move */}
+      {TAB_CONFIG.slice(0, 2).map((tab) => {
+        const focused = state.index === tab.routeIndex;
+        const iconColor = focused ? tab.activeColor : colors.text.disabled;
 
         return (
           <TabButton
             key={tab.name}
-            icon={(tab as Exclude<TabEntry, { isFAB: true }>).icon}
-            label={(tab as Exclude<TabEntry, { isFAB: true }>).label}
+            icon={tab.icon}
+            label={tab.label}
             color={iconColor}
             focused={focused}
             tabWidth={tabWidth}
             onPress={() => {
               const event = navigation.emit({
                 type: 'tabPress',
-                target: state.routes[index]?.key ?? '',
+                target: state.routes[tab.routeIndex]?.key ?? '',
                 canPreventDefault: true,
               });
               if (!focused && !event.defaultPrevented) {
@@ -164,7 +147,48 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
             onLongPress={() => {
               navigation.emit({
                 type: 'tabLongPress',
-                target: state.routes[index]?.key ?? '',
+                target: state.routes[tab.routeIndex]?.key ?? '',
+              });
+            }}
+          />
+        );
+      })}
+
+      {/* Center FAB - press-only, non-swipeable */}
+      <FABButton
+        tabWidth={tabWidth}
+        onPress={() => {
+          navigation.navigate('log');
+        }}
+      />
+
+      {/* Right tabs: Insights, Profile */}
+      {TAB_CONFIG.slice(2).map((tab) => {
+        const focused = state.index === tab.routeIndex;
+        const iconColor = focused ? tab.activeColor : colors.text.disabled;
+
+        return (
+          <TabButton
+            key={tab.name}
+            icon={tab.icon}
+            label={tab.label}
+            color={iconColor}
+            focused={focused}
+            tabWidth={tabWidth}
+            onPress={() => {
+              const event = navigation.emit({
+                type: 'tabPress',
+                target: state.routes[tab.routeIndex]?.key ?? '',
+                canPreventDefault: true,
+              });
+              if (!focused && !event.defaultPrevented) {
+                navigation.navigate(tab.name);
+              }
+            }}
+            onLongPress={() => {
+              navigation.emit({
+                type: 'tabLongPress',
+                target: state.routes[tab.routeIndex]?.key ?? '',
               });
             }}
           />
@@ -182,7 +206,7 @@ function FABButton({ tabWidth, onPress }: { tabWidth: number; onPress: () => voi
   }));
 
   return (
-    <View style={{ width: tabWidth, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: tabWidth, alignItems: 'center', justifyContent: 'center', pointerEvents: 'box-only' }}>
       <Pressable
         onPress={onPress}
         onPressIn={() => { scale.value = withTiming(0.92, { duration: 80 }); }}
@@ -295,9 +319,9 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="today"    options={{ title: 'Today' }} />
       <Tabs.Screen name="move"     options={{ title: 'Move' }} />
-      <Tabs.Screen name="log"      options={{ title: 'Log' }} />
       <Tabs.Screen name="insights" options={{ title: 'Insights' }} />
       <Tabs.Screen name="profile"  options={{ title: 'Profile' }} />
+      <Tabs.Screen name="log"      options={{ title: 'Log' }} />
     </Tabs>
   );
 }

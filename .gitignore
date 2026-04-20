@@ -25,3 +25,4 @@ supabase/.temp/
 *.idsig
 .openclaw
 .worktrees/
+.idea

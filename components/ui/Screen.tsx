@@ -30,7 +30,7 @@ type Props = {
   contentContainerStyle?: ScrollViewProps['contentContainerStyle'];
 };
 
-const TAB_ROUTES = ['/log', '/today', '/move', '/insights', '/profile'] as const;
+const TAB_ROUTES = ['/today', '/move', '/insights', '/profile'] as const;
 
 export default function Screen({
   children,
