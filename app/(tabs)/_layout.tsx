@@ -22,6 +22,7 @@ const TAB_CONFIG: TabEntry[] = [
   { name: 'move',     icon: 'barbell-outline',     label: 'Move',     activeColor: colors.intensity.primary, routeIndex: 1 },
   { name: 'insights', icon: 'trending-up-outline', label: 'Insights', activeColor: colors.accent.primary, routeIndex: 2 },
   { name: 'profile',  icon: 'person-outline',      label: 'Profile',  activeColor: colors.accent.primary, routeIndex: 3 },
+  { name: 'log',      icon: 'add',                 label: 'Log',      activeColor: colors.cta.bg, routeIndex: 4 },
 ];
 
 const TAB_BAR_H   = 68;

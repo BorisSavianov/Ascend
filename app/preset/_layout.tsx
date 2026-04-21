@@ -16,8 +16,8 @@ export default function PresetLayout() {
           backgroundColor: colors.bg.canvas,
         },
         headerLeft: () => (
-          <Pressable onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={24} color={colors.text.primary} />
+          <Pressable onPress={() => router.replace('/(tabs)/move/templates')}>
+            <Ionicons name="close" size={24} color={colors.text.primary} />
           </Pressable>
         ),
       }}

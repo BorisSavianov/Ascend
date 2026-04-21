@@ -24,6 +24,7 @@ import { useWorkoutPresets } from '../../../hooks/useWorkoutPresets';
 import { useUpsertDayAssignment } from '../../../hooks/useUpsertDayAssignment';
 import { useCreatePreset } from '../../../hooks/useCreatePreset';
 import { colors, motion, radius, spacing, typography } from '../../../lib/theme';
+import { ScrollView } from 'react-native';
 
 const DAY_ABBREVS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -329,8 +330,8 @@ export default function WorkoutTemplatesScreen() {
   const [newWorkoutName, setNewWorkoutName] = useState('');
 
   // Day cell animation state (for each day 0-6)
-  const dayScales = React.useMemo(() => DAY_ABBREVS.map(() => useSharedValue(1)), []);
-  const dayOpacities = React.useMemo(() => DAY_ABBREVS.map(() => useSharedValue(1)), []);
+  const dayScales = DAY_ABBREVS.map(() => useSharedValue(1));
+  const dayOpacities = DAY_ABBREVS.map(() => useSharedValue(1));
 
   // Build a map: day_of_week → preset or null
   const assignmentMap = React.useMemo(() => {
@@ -428,21 +429,20 @@ export default function WorkoutTemplatesScreen() {
               Your Week
             </Text>
 
-            {/* Day cells row */}
-            <View
-              style={{
-                flexDirection: 'row',
-                gap: spacing.xs,
-              }}
-            >
-              {DAY_ABBREVS.map((abbrev, index) => {
-                const assigned = assignmentMap[index] ?? null;
-                const isAssigned = assigned !== null;
-                const presetLabel = assigned
-                  ? assigned.name.length > 8
-                    ? assigned.name.slice(0, 7) + '…'
-                    : assigned.name
-                  : 'Rest';
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: spacing.xs }}
+              >
+                {DAY_ABBREVS.map((abbrev, index) => {
+                  const assigned = assignmentMap[index] ?? null;
+                  const isAssigned = assigned !== null;
+                  const presetName = assigned?.name || 'Unnamed';
+                  const presetLabel = assigned
+                    ? presetName.length > 8
+                      ? presetName.slice(0, 7) + '…'
+                      : presetName
+                    : 'Rest';
 
                 const animatedStyle = useAnimatedStyle(() => ({
                   transform: [{ scale: dayScales[index].value }],
@@ -511,8 +511,8 @@ export default function WorkoutTemplatesScreen() {
                   </Animated.View>
                 );
               })}
+              </ScrollView>
             </View>
-          </View>
 
           {/* ── Section B: Workouts ────────────────────────────────────────── */}
           <View style={{ marginBottom: spacing['2xl'] }}>
