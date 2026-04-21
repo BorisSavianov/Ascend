@@ -7,15 +7,17 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { format } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
 import Screen from '../../../components/ui/Screen';
 import AppHeader from '../../../components/ui/AppHeader';
-import Surface from '../../../components/ui/Surface';
 import Button from '../../../components/ui/Button';
 import TextField from '../../../components/ui/TextField';
 import SegmentedControl from '../../../components/ui/SegmentedControl';
+import EmptyState from '../../../components/EmptyState';
+import ListRow from '../../../components/ui/ListRow';
 import { SkeletonBox } from '../../../components/ui/Skeleton';
 import { useWeekAssignments } from '../../../hooks/useWeekAssignments';
 import { useWorkoutPresets } from '../../../hooks/useWorkoutPresets';
@@ -48,6 +50,7 @@ function DayAssignmentSheet({
   onClose,
 }: DayAssignmentSheetProps) {
   const translateY = useSharedValue(400);
+  const [pressedId, setPressedId] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (visible) {
@@ -113,7 +116,12 @@ function DayAssignmentSheet({
 
           {/* Rest day row */}
           <Pressable
-            onPress={() => onSelect(null)}
+            onPressIn={() => setPressedId('rest')}
+            onPressOut={() => setPressedId(null)}
+            onPress={async () => {
+              await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onSelect(null);
+            }}
             style={{
               flexDirection: 'row',
               alignItems: 'center',
@@ -121,6 +129,7 @@ function DayAssignmentSheet({
               gap: spacing.md,
               borderBottomWidth: 1,
               borderBottomColor: colors.border.subtle,
+              backgroundColor: pressedId === 'rest' ? colors.bg.surfaceRaised : 'transparent',
             }}
           >
             <Ionicons name="moon-outline" size={18} color={colors.text.tertiary} />
@@ -147,7 +156,12 @@ function DayAssignmentSheet({
             return (
               <Pressable
                 key={preset.id}
-                onPress={() => onSelect(preset.id)}
+                onPressIn={() => setPressedId(preset.id)}
+                onPressOut={() => setPressedId(null)}
+                onPress={async () => {
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onSelect(preset.id);
+                }}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -155,6 +169,7 @@ function DayAssignmentSheet({
                   gap: spacing.md,
                   borderBottomWidth: isLast ? 0 : 1,
                   borderBottomColor: colors.border.subtle,
+                  backgroundColor: pressedId === preset.id ? colors.bg.surfaceRaised : 'transparent',
                 }}
               >
                 <Ionicons
@@ -255,6 +270,7 @@ function NewWorkoutSheet({
               borderRadius: radius.pill,
               backgroundColor: colors.border.strong,
               alignSelf: 'center',
+              marginBottom: spacing.xl,
             }}
           />
 
@@ -311,6 +327,10 @@ export default function WorkoutTemplatesScreen() {
   // New workout sheet state
   const [showNewWorkout, setShowNewWorkout] = useState(false);
   const [newWorkoutName, setNewWorkoutName] = useState('');
+
+  // Day cell animation state (for each day 0-6)
+  const dayScales = React.useMemo(() => DAY_ABBREVS.map(() => useSharedValue(1)), []);
+  const dayOpacities = React.useMemo(() => DAY_ABBREVS.map(() => useSharedValue(1)), []);
 
   // Build a map: day_of_week → preset or null
   const assignmentMap = React.useMemo(() => {
@@ -389,14 +409,19 @@ export default function WorkoutTemplatesScreen() {
 
         <View style={{ paddingHorizontal: spacing.xl, gap: spacing.xl }}>
           {/* ── Section A: Your Week ───────────────────────────────────────── */}
-          <View>
+          <View style={{
+            backgroundColor: colors.bg.surfaceRaised,
+            padding: spacing.lg,
+            borderRadius: radius.md,
+            gap: spacing.md,
+            marginBottom: spacing['2xl'],
+          }}>
             <Text
               style={[
                 typography.label,
                 {
                   textTransform: 'uppercase',
                   letterSpacing: 1.2,
-                  marginBottom: spacing.md,
                 },
               ]}
             >
@@ -419,28 +444,50 @@ export default function WorkoutTemplatesScreen() {
                     : assigned.name
                   : 'Rest';
 
+                const animatedStyle = useAnimatedStyle(() => ({
+                  transform: [{ scale: dayScales[index].value }],
+                  opacity: dayOpacities[index].value,
+                }));
+
+                const handleDayCellPressIn = () => {
+                  dayScales[index].value = withTiming(0.96, { duration: motion.instant });
+                  dayOpacities[index].value = withTiming(0.7, { duration: motion.instant });
+                };
+
+                const handleDayCellPressOut = () => {
+                  dayScales[index].value = withSpring(1, motion.spring.snappy);
+                  dayOpacities[index].value = withSpring(1, motion.spring.snappy);
+                };
+
+                const handleDayCellPress = async () => {
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  handleDayPress(index);
+                };
+
                 return (
-                  <Pressable
-                    key={index}
-                    onPress={() => handleDayPress(index)}
-                    style={{
-                      flex: 1,
-                      width: 64,
-                      height: 56,
-                      borderRadius: radius.sm,
-                      borderWidth: 1,
-                      borderColor: isAssigned
-                        ? colors.intensity.primary
-                        : colors.border.default,
-                      backgroundColor: isAssigned
-                        ? colors.intensity.muted
-                        : colors.bg.surface,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: spacing.xs,
-                      paddingHorizontal: spacing.xs,
-                    }}
-                  >
+                  <Animated.View key={index} style={animatedStyle}>
+                    <Pressable
+                      onPressIn={handleDayCellPressIn}
+                      onPressOut={handleDayCellPressOut}
+                      onPress={handleDayCellPress}
+                      style={{
+                        flex: 1,
+                        width: 64,
+                        height: 56,
+                        borderRadius: radius.sm,
+                        borderWidth: isAssigned ? 2 : 1,
+                        borderColor: isAssigned
+                          ? colors.intensity.primary
+                          : colors.border.subtle,
+                        backgroundColor: isAssigned
+                          ? colors.intensity.muted
+                          : colors.bg.surface,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: spacing.xs,
+                        paddingHorizontal: spacing.xs,
+                      }}
+                    >
                     <Text style={[typography.caption, { color: colors.text.tertiary }]}>
                       {abbrev}
                     </Text>
@@ -460,26 +507,33 @@ export default function WorkoutTemplatesScreen() {
                     >
                       {presetLabel}
                     </Text>
-                  </Pressable>
+                    </Pressable>
+                  </Animated.View>
                 );
               })}
             </View>
           </View>
 
           {/* ── Section B: Workouts ────────────────────────────────────────── */}
-          <View>
-            <Text
-              style={[
-                typography.label,
-                {
-                  textTransform: 'uppercase',
-                  letterSpacing: 1.2,
-                  marginBottom: spacing.md,
-                },
-              ]}
-            >
-              Workouts
-            </Text>
+          <View style={{ marginBottom: spacing['2xl'] }}>
+            <View style={{
+              borderBottomWidth: 1,
+              borderBottomColor: colors.border.subtle,
+              paddingBottom: spacing.md,
+              marginBottom: spacing.lg,
+            }}>
+              <Text
+                style={[
+                  typography.label,
+                  {
+                    textTransform: 'uppercase',
+                    letterSpacing: 1.2,
+                  },
+                ]}
+              >
+                Workouts
+              </Text>
+            </View>
 
             {presetsLoading ? (
               <View style={{ gap: spacing.sm }}>
@@ -488,47 +542,26 @@ export default function WorkoutTemplatesScreen() {
                 ))}
               </View>
             ) : presets.length === 0 ? (
-              <Surface>
-                <Text style={typography.h3}>No workouts yet</Text>
-                <Text
-                  style={[
-                    typography.bodySm,
-                    { marginTop: spacing.xs, color: colors.text.tertiary },
-                  ]}
-                >
-                  Create your first workout template below.
-                </Text>
-              </Surface>
+              <EmptyState
+                title="No workouts yet"
+                message="Create your first workout template below."
+              />
             ) : (
               <View style={{ gap: spacing.sm }}>
                 {presets.map((preset, i) => (
                   <Animated.View key={preset.id} entering={FadeInDown.delay(i * 60).duration(250).springify()}>
-                    <Pressable
-                      onPress={() =>
+                    <ListRow
+                      title={preset.name}
+                      leading={<Ionicons name="barbell-outline" size={18} color={colors.intensity.primary} />}
+                      trailing={<Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />}
+                      onPress={async () => {
+                        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                         router.push({
                           pathname: '/preset/[presetId]',
                           params: { presetId: preset.id, name: preset.name },
-                        })
-                      }
-                    >
-                      <Surface
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: spacing.md,
-                        }}
-                      >
-                        <Text style={[typography.h3, { flex: 1 }]} numberOfLines={1}>
-                          {preset.name}
-                        </Text>
-                        <Ionicons
-                          name="chevron-forward"
-                          size={16}
-                          color={colors.text.tertiary}
-                        />
-                      </Surface>
-                    </Pressable>
+                        });
+                      }}
+                    />
                   </Animated.View>
                 ))}
               </View>
