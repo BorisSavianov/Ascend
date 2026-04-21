@@ -91,7 +91,7 @@ export default function WorkoutHistoryScreen() {
           value="history"
           onChange={(val) => {
             if (val === 'today')     router.push('/(tabs)/move');
-            if (val === 'templates') router.push('/move/templates');
+            if (val === 'templates') router.push('/(tabs)/move/templates');
           }}
         />
       </View>

@@ -382,7 +382,7 @@ export default function WorkoutTemplatesScreen() {
             value="templates"
             onChange={(v) => {
               if (v === 'today') router.push('/(tabs)/move');
-              if (v === 'history') router.push('/move/history');
+              if (v === 'history') router.push('/(tabs)/move/history');
             }}
           />
         </View>

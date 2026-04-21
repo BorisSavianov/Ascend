@@ -33,6 +33,7 @@ import TextField from '../../../components/ui/TextField';
 import Button from '../../../components/ui/Button';
 import UndoToast from '../../../components/ui/UndoToast';
 import SegmentedControl from '../../../components/ui/SegmentedControl';
+import AppHeader from '../../../components/ui/AppHeader';
 import { colors, fontFamily, radius, spacing, typography } from '../../../lib/theme';
 import { SkeletonBox } from '../../../components/ui/Skeleton';
 
@@ -219,21 +220,11 @@ function MoveScreenContent() {
         <UndoToast message={`"${pendingDelete.name}" will be deleted`} onUndo={handleUndo} />
       ) : null}
 
-      <View style={{
-        paddingHorizontal: spacing.xl,
-        paddingTop: spacing.xl,
-        paddingBottom: spacing.md,
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        justifyContent: 'space-between',
-      }}>
-        <View>
-          <Text style={[typography.label, { color: colors.text.tertiary, marginBottom: spacing.xs }]}>
-            {format(today, "EEE · d MMM · 'Wk' w")}
-          </Text>
-          <Text style={typography.h1}>Move</Text>
-        </View>
-      </View>
+      <AppHeader
+        title="Move"
+        eyebrow={format(today, 'EEEE, d MMMM')}
+        subtitle="Today's workout"
+      />
 
       <View style={{ paddingHorizontal: spacing.xl, gap: spacing.xl }}>
 
@@ -246,8 +237,8 @@ function MoveScreenContent() {
           ]}
           value="today"
           onChange={(v) => {
-            if (v === 'history') router.push('/move/history');
-            if (v === 'templates') router.push('/move/templates');
+            if (v === 'history') router.push('/(tabs)/move/history');
+            if (v === 'templates') router.push('/(tabs)/move/templates');
           }}
         />
 
@@ -278,7 +269,7 @@ function MoveScreenContent() {
                   Get started with a default Push / Pull / Legs programme, or{' '}
                   <Text
                     style={[typography.bodySm, { color: colors.accent.primary }]}
-                    onPress={() => router.push('/move/templates')}
+                    onPress={() => router.push('/(tabs)/move/templates')}
                   >
                     manage your templates
                   </Text>
@@ -401,7 +392,7 @@ function MoveScreenContent() {
                     />
                     <Button
                       label="History"
-                      onPress={() => router.push('/move/history')}
+                      onPress={() => router.push('/(tabs)/move/history')}
                       variant="secondary"
                       size="md"
                     />
