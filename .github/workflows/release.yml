@@ -89,7 +89,7 @@ jobs:
         run: |
           mkdir -p dist
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > dist/release.keystore
-          APK_PATH="android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          APK_PATH="android/app/build/outputs/apk/release/app-release.apk"
           SIGNED_APK="dist/Ascend.apk"
           zipalign -p -f 4 "$APK_PATH" "dist/aligned.apk"
           apksigner sign \
