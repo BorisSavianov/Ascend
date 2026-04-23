@@ -87,11 +87,40 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "Error: ANDROID_KEYSTORE_BASE64 secret is not set"
+            exit 1
+          fi
+
           mkdir -p dist
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > dist/release.keystore
+          # Use printf to avoid issues with echo and trailing newlines
+          printf "%s" "$ANDROID_KEYSTORE_BASE64" | base64 --decode > dist/release.keystore
+          
+          # Verify keystore was decoded and is not empty
+          if [ ! -s dist/release.keystore ]; then
+            echo "Error: Keystore file is empty or decoding failed"
+            exit 1
+          fi
+
           APK_PATH="android/app/build/outputs/apk/release/app-release.apk"
+          # Expo prebuild might name the APK differently or put it in a different place
+          if [ ! -f "$APK_PATH" ]; then
+            echo "Looking for APK..."
+            APK_PATH=$(find android/app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          fi
+
+          if [ -z "$APK_PATH" ] || [ ! -f "$APK_PATH" ]; then
+            echo "Error: Could not find release APK at $APK_PATH"
+            exit 1
+          fi
+
+          echo "Found APK at $APK_PATH"
           SIGNED_APK="dist/Ascend.apk"
+          
+          echo "Aligning APK..."
           zipalign -p -f 4 "$APK_PATH" "dist/aligned.apk"
+          
+          echo "Signing APK..."
           apksigner sign \
             --ks dist/release.keystore \
             --ks-pass pass:"$ANDROID_KEYSTORE_PASSWORD" \
@@ -99,7 +128,9 @@ jobs:
             --ks-key-alias "$ANDROID_KEY_ALIAS" \
             --out "$SIGNED_APK" \
             "dist/aligned.apk"
+          
           sha256sum "$SIGNED_APK" > "dist/Ascend.apk.sha256"
+          echo "Signing completed successfully."
 
       - name: Build release notes
         run: |

@@ -27,3 +27,4 @@ supabase/.temp/
 .worktrees/
 .idea
 credentials.json
+*.b64
