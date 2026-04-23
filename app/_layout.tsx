@@ -12,6 +12,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { supabase, auth } from '../lib/supabase';
 import { logger } from '../lib/logger';
 import OfflineBanner from '../components/OfflineBanner';
+import UpdatePrompt from '../components/UpdatePrompt';
 import {
   requestNotificationPermissions,
   getStoredNotificationConfig,
@@ -21,6 +22,7 @@ import {
 } from '../lib/notifications';
 import { useAppStore } from '../store/useAppStore';
 import { colors } from '../lib/theme';
+import { useAppUpdate } from '../hooks/useAppUpdate';
 
 // Font loading
 import { useFonts } from 'expo-font';
@@ -40,6 +42,7 @@ void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const isMounted = useRef(false);
+  const update = useAppUpdate();
   // Tracks whether initAuth() has completed its first run. The onAuthStateChange
   // listener fires immediately if a session exists, which would race with
   // initAuth. We skip the listener's first event until initAuth is done.
@@ -224,6 +227,7 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <StatusBar style="light" />
         <OfflineBanner />
+        <UpdatePrompt {...update} />
         <Slot />
       </QueryClientProvider>
     </GestureHandlerRootView>
