@@ -1,7 +1,7 @@
 import * as FileSystem from 'expo-file-system';
 import type { DownloadResumable, FileSystemDownloadResult } from 'expo-file-system';
 import type { UpdateCandidate, UpdateProgress } from './types';
-import { normalizeChecksum, sha256Bytes, bytesFromBase64 } from './sha256';
+import { normalizeChecksum, SHA256, bytesFromBase64 } from './sha256';
 import { readUpdateState, writeUpdateState } from './storage';
 
 export type DownloadOutcome = {
@@ -42,10 +42,26 @@ async function ensureDownloadDir(): Promise<void> {
 }
 
 async function readFileChecksum(fileUri: string): Promise<string> {
-  const base64 = await FileSystem.readAsStringAsync(fileUri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-  return sha256Bytes(bytesFromBase64(base64));
+  const CHUNK_SIZE = 1024 * 1024; // 1MB
+  const info = await FileSystem.getInfoAsync(fileUri);
+  if (!info.exists) throw new Error('File not found for checksum');
+  
+  const hasher = new SHA256();
+  let position = 0;
+  const totalSize = info.size;
+
+  while (position < totalSize) {
+    const length = Math.min(CHUNK_SIZE, totalSize - position);
+    const base64 = await FileSystem.readAsStringAsync(fileUri, {
+      encoding: FileSystem.EncodingType.Base64,
+      position,
+      length,
+    });
+    hasher.update(bytesFromBase64(base64));
+    position += length;
+  }
+
+  return hasher.finalize();
 }
 
 function parseExpectedChecksum(text: string): string | null {

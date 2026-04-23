@@ -12,10 +12,10 @@ const K = new Uint32Array([
   0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 ]);
 
-const H = new Uint32Array([
+const H_INITIAL = [
   0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
   0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
-]);
+];
 
 function rotr(value: number, shift: number): number {
   return (value >>> shift) | (value << (32 - shift));
@@ -25,24 +25,51 @@ function toHex(value: number): string {
   return value.toString(16).padStart(8, '0');
 }
 
-export function sha256Bytes(input: Uint8Array): string {
-  const length = input.length;
-  const bitLength = length * 8;
-  const paddedLength = (((length + 9 + 63) >> 6) << 6);
-  const data = new Uint8Array(paddedLength);
-  data.set(input);
-  data[length] = 0x80;
+export class SHA256 {
+  private h = new Uint32Array(H_INITIAL);
+  private buffer = new Uint8Array(64);
+  private bufferLength = 0;
+  private bytesProcessed = 0;
+  private w = new Uint32Array(64);
 
-  const view = new DataView(data.buffer);
-  view.setUint32(paddedLength - 4, bitLength >>> 0, false);
-  view.setUint32(paddedLength - 8, Math.floor(bitLength / 0x100000000), false);
+  update(input: Uint8Array): this {
+    let offset = 0;
+    while (offset < input.length) {
+      const take = Math.min(input.length - offset, 64 - this.bufferLength);
+      this.buffer.set(input.subarray(offset, offset + take), this.bufferLength);
+      this.bufferLength += take;
+      this.bytesProcessed += take;
+      offset += take;
 
-  const h = new Uint32Array(H);
-  const w = new Uint32Array(64);
+      if (this.bufferLength === 64) {
+        this.processBlock(this.buffer);
+        this.bufferLength = 0;
+      }
+    }
+    return this;
+  }
 
-  for (let offset = 0; offset < paddedLength; offset += 64) {
+  finalize(): string {
+    const bitLength = this.bytesProcessed * 8;
+    const padding = new Uint8Array(128);
+    padding[0] = 0x80;
+    
+    const padLen = (this.bufferLength < 56) ? (56 - this.bufferLength) : (120 - this.bufferLength);
+    
+    // Add bit length at the end (64-bit big endian)
+    const view = new DataView(padding.buffer);
+    view.setUint32(padLen + 4, bitLength >>> 0, false);
+    view.setUint32(padLen, Math.floor(bitLength / 0x100000000), false);
+    
+    this.update(padding.subarray(0, padLen + 8));
+    return Array.from(this.h).map(toHex).join('');
+  }
+
+  private processBlock(block: Uint8Array): void {
+    const view = new DataView(block.buffer, block.byteOffset, block.byteLength);
+    const w = this.w;
     for (let i = 0; i < 16; i += 1) {
-      w[i] = view.getUint32(offset + i * 4, false);
+      w[i] = view.getUint32(i * 4, false);
     }
 
     for (let i = 16; i < 64; i += 1) {
@@ -51,14 +78,14 @@ export function sha256Bytes(input: Uint8Array): string {
       w[i] = (((w[i - 16] + s0) >>> 0) + ((w[i - 7] + s1) >>> 0)) >>> 0;
     }
 
-    let a = h[0];
-    let b = h[1];
-    let c = h[2];
-    let d = h[3];
-    let e = h[4];
-    let f = h[5];
-    let g = h[6];
-    let hh = h[7];
+    let a = this.h[0];
+    let b = this.h[1];
+    let c = this.h[2];
+    let d = this.h[3];
+    let e = this.h[4];
+    let f = this.h[5];
+    let g = this.h[6];
+    let hh = this.h[7];
 
     for (let i = 0; i < 64; i += 1) {
       const s1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
@@ -78,17 +105,19 @@ export function sha256Bytes(input: Uint8Array): string {
       a = (temp1 + temp2) >>> 0;
     }
 
-    h[0] = (h[0] + a) >>> 0;
-    h[1] = (h[1] + b) >>> 0;
-    h[2] = (h[2] + c) >>> 0;
-    h[3] = (h[3] + d) >>> 0;
-    h[4] = (h[4] + e) >>> 0;
-    h[5] = (h[5] + f) >>> 0;
-    h[6] = (h[6] + g) >>> 0;
-    h[7] = (h[7] + hh) >>> 0;
+    this.h[0] = (this.h[0] + a) >>> 0;
+    this.h[1] = (this.h[1] + b) >>> 0;
+    this.h[2] = (this.h[2] + c) >>> 0;
+    this.h[3] = (this.h[3] + d) >>> 0;
+    this.h[4] = (this.h[4] + e) >>> 0;
+    this.h[5] = (this.h[5] + f) >>> 0;
+    this.h[6] = (this.h[6] + g) >>> 0;
+    this.h[7] = (this.h[7] + hh) >>> 0;
   }
+}
 
-  return Array.from(h).map(toHex).join('');
+export function sha256Bytes(input: Uint8Array): string {
+  return new SHA256().update(input).finalize();
 }
 
 export function bytesFromBase64(base64: string): Uint8Array {
@@ -108,4 +137,3 @@ export function normalizeChecksum(checksum: string): string | null {
   const match = checksum.match(/[A-Fa-f0-9]{64}/);
   return match ? match[0].toLowerCase() : null;
 }
-
