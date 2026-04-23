@@ -134,9 +134,14 @@ function TodayScreenContent() {
             <Text style={[typography.label, { color: colors.text.tertiary, marginBottom: spacing.xs }]}>
               {format(selectedDate, 'EEE · d MMM')}
             </Text>
-            <Text style={typography.h1}>
-              {atToday ? 'Today' : format(selectedDate, 'EEEE')}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm }}>
+              <Text style={typography.h1}>
+                {atToday ? 'Today' : format(selectedDate, 'EEEE')}
+              </Text>
+              <Text style={[typography.caption, { color: colors.text.disabled, fontSize: 10 }]}>
+                v1.2.0
+              </Text>
+            </View>
           </View>
           <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs }}>
             <Pressable
