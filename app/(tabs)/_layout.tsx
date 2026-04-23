@@ -207,7 +207,7 @@ function FABButton({ tabWidth, onPress }: { tabWidth: number; onPress: () => voi
   }));
 
   return (
-    <View style={{ width: tabWidth, alignItems: 'center', justifyContent: 'center', pointerEvents: 'box-only' }}>
+    <View style={{ width: tabWidth, alignItems: 'center', justifyContent: 'center' }}>
       <Pressable
         onPress={onPress}
         onPressIn={() => { scale.value = withTiming(0.92, { duration: 80 }); }}
