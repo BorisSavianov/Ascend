@@ -91,17 +91,17 @@ function TodayScreenContent() {
   }
 
   const consumed = summary?.total_calories ?? 0;
-  const proteinG  = summary?.total_protein_g ?? 0;
-  const fatG      = summary?.total_fat_g ?? 0;
-  const carbsG    = summary?.total_carbs_g ?? 0;
+  const proteinG = summary?.total_protein_g ?? 0;
+  const fatG = summary?.total_fat_g ?? 0;
+  const carbsG = summary?.total_carbs_g ?? 0;
   const summaryExt = summary as (typeof summary & {
     net_calories?: number | null;
     exercise_calories_burned?: number | null;
   }) | undefined;
   const exerciseCalories = summaryExt?.exercise_calories_burned ?? 0;
-  const netCalories      = summaryExt?.net_calories ?? consumed;
-  const leftToTarget     = Math.max(calorieTarget - netCalories, 0);
-  const ringPct          = calorieTarget > 0 ? Math.min(1, netCalories / calorieTarget) : 0;
+  const netCalories = summaryExt?.net_calories ?? consumed;
+  const leftToTarget = Math.max(calorieTarget - netCalories, 0);
+  const ringPct = calorieTarget > 0 ? Math.min(1, netCalories / calorieTarget) : 0;
 
   // Build 7-day strip using weeklyData
   const today = new Date();
@@ -139,7 +139,7 @@ function TodayScreenContent() {
                 {atToday ? 'Today' : format(selectedDate, 'EEEE')}
               </Text>
               <Text style={[typography.caption, { color: colors.text.disabled, fontSize: 10 }]}>
-                v1.2.0
+                v1.2.2
               </Text>
             </View>
           </View>
@@ -294,9 +294,9 @@ function TodayScreenContent() {
                       <Text style={typography.label}>Macros</Text>
                       <Text style={[typography.caption, { color: colors.text.disabled }]}>g · % target</Text>
                     </View>
-                    <MacroProgressRow name="Protein" val={proteinG}  target={macroTargets.protein} color={colors.accent.primary} />
-                    <MacroProgressRow name="Carbs"   val={carbsG}    target={macroTargets.carbs}   color="#A78BFA" />
-                    <MacroProgressRow name="Fat"     val={fatG}      target={macroTargets.fat}     color={colors.intensity.primary} />
+                    <MacroProgressRow name="Protein" val={proteinG} target={macroTargets.protein} color={colors.accent.primary} />
+                    <MacroProgressRow name="Carbs" val={carbsG} target={macroTargets.carbs} color="#A78BFA" />
+                    <MacroProgressRow name="Fat" val={fatG} target={macroTargets.fat} color={colors.intensity.primary} />
                   </View>
                 </>
               )}
@@ -480,8 +480,8 @@ function MealCard({ meal, onDelete, isPendingDelete = false }: MealCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   const totalCalories = meal.meal_items.reduce((sum, item) => sum + item.calories, 0);
-  const totalProtein  = meal.meal_items.reduce((sum, item) => sum + (item.protein_g ?? 0), 0);
-  const foodNames     = meal.meal_items.map((i) => i.food_name);
+  const totalProtein = meal.meal_items.reduce((sum, item) => sum + (item.protein_g ?? 0), 0);
+  const foodNames = meal.meal_items.map((i) => i.food_name);
 
   return (
     <Animated.View layout={LinearTransition.duration(180)}>
