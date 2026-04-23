@@ -25,7 +25,7 @@ export default ({ config }: ConfigContext): ExpoConfigWithNewArch => ({
   },
   android: {
     package: 'com.personal.ascend',
-    versionCode: 1,
+    versionCode: 14,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#0a0a0a',

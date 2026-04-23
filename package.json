@@ -10,7 +10,7 @@
     "web": "expo start --web",
     "type-check": "tsc --noEmit",
     "test": "jest",
-    "build:android": "export $(grep -v '^#' .env.local | xargs) && eas build --local --platform android --profile preview"
+    "build:android": "export $(grep -v '^#' .env.local | xargs) && eas build --local --platform android --profile production"
   },
   "dependencies": {
     "@expo-google-fonts/barlow-semi-condensed": "^0.4.1",
