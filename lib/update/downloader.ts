@@ -42,13 +42,14 @@ async function ensureDownloadDir(): Promise<void> {
 }
 
 async function readFileChecksum(fileUri: string): Promise<string> {
-  const CHUNK_SIZE = 1024 * 1024; // 1MB
+  const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB keeps memory bounded while reducing hashing overhead
   const info = await FileSystem.getInfoAsync(fileUri);
   if (!info.exists) throw new Error('File not found for checksum');
   
   const hasher = new SHA256();
   let position = 0;
-  const totalSize = info.size;
+  const totalSize = typeof info.size === 'number' ? info.size : 0;
+  if (totalSize <= 0) throw new Error('Downloaded file has invalid size');
 
   while (position < totalSize) {
     const length = Math.min(CHUNK_SIZE, totalSize - position);

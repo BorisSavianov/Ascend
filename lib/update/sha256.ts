@@ -122,10 +122,13 @@ export function sha256Bytes(input: Uint8Array): string {
 
 export function bytesFromBase64(base64: string): Uint8Array {
   const sanitized = base64.replace(/\s+/g, '');
-  const binary =
-    typeof atob === 'function'
-      ? atob(sanitized)
-      : Buffer.from(sanitized, 'base64').toString('binary');
+
+  if (typeof Buffer !== 'undefined') {
+    const buffer = Buffer.from(sanitized, 'base64');
+    return new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+  }
+
+  const binary = atob(sanitized);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) {
     bytes[i] = binary.charCodeAt(i) & 0xff;
