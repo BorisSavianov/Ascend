@@ -25,6 +25,7 @@ export default function UpdatePrompt({
   const versionLabel = formatVersionLabel(candidate.version);
   const body = candidate.notes || 'A newer official release is available.';
   const isDownloading = status === 'downloading' || status === 'verifying';
+  const isBusy = isDownloading || status === 'installing';
   const isForced = candidate.force;
   const progressPercent = progress?.percent ?? 0;
 
@@ -95,9 +96,9 @@ export default function UpdatePrompt({
 
           <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
             <Button
-              label={isDownloading ? 'Preparing installer' : 'Install update'}
+              label={status === 'installing' ? 'Waiting for installer' : isBusy ? 'Preparing installer' : 'Install update'}
               onPress={installNow}
-              loading={isDownloading}
+              loading={isBusy}
             />
             {!isForced ? (
               <Button label="Later" onPress={snooze} variant="secondary" />

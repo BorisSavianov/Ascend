@@ -33,9 +33,10 @@ export function useAppUpdate(): AppUpdateController {
   const [state, setState] = useState<UpdateUiState>(emptyState);
   const candidateRef = useRef<UpdateCandidate | null>(null);
   const checkingRef = useRef(false);
+  const installInFlightRef = useRef(false);
 
   const refresh = async () => {
-    if (checkingRef.current) return;
+    if (checkingRef.current || installInFlightRef.current) return;
     checkingRef.current = true;
     setState((current) => ({ ...current, status: 'checking', error: null }));
     try {
@@ -78,6 +79,9 @@ export function useAppUpdate(): AppUpdateController {
   const installNow = async () => {
     const candidate = candidateRef.current;
     if (!candidate) return;
+    if (installInFlightRef.current) return;
+
+    installInFlightRef.current = true;
 
     setState((current) => ({
       ...current,
@@ -87,16 +91,27 @@ export function useAppUpdate(): AppUpdateController {
     }));
 
     try {
-      await service.install(candidate, (progress) => {
-        setState((current) => ({
-          ...current,
-          progress,
-          status: progress?.percent === 100 ? 'verifying' : 'downloading',
-        }));
-      });
+      await service.install(
+        candidate,
+        (progress) => {
+          setState((current) => ({
+            ...current,
+            progress,
+            status: progress?.percent === 100 ? 'verifying' : 'downloading',
+          }));
+        },
+        () => {
+          setState((current) => ({
+            ...current,
+            status: 'installing',
+            error: null,
+          }));
+        },
+      );
       setState((current) => ({
         ...current,
-        status: 'installing',
+        status: 'error',
+        error: 'Installer closed before the update completed. Try again or enable Install unknown apps.',
       }));
     } catch (error) {
       setState((current) => ({
@@ -104,6 +119,8 @@ export function useAppUpdate(): AppUpdateController {
         status: 'error',
         error: error instanceof Error ? error.message : 'Failed to install update',
       }));
+    } finally {
+      installInFlightRef.current = false;
     }
   };
 

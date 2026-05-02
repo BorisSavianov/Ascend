@@ -88,7 +88,11 @@ export class UpdateService {
     }
   }
 
-  async install(candidate: UpdateCandidate, onProgress?: (progress: NonNullable<UpdateUiState['progress']>) => void): Promise<void> {
+  async install(
+    candidate: UpdateCandidate,
+    onProgress?: (progress: NonNullable<UpdateUiState['progress']>) => void,
+    onReadyToInstall?: () => void,
+  ): Promise<void> {
     const download = await this.downloader.download(candidate, (progress) => {
       onProgress?.(progress);
     });
@@ -97,6 +101,7 @@ export class UpdateService {
       throw new Error('Download failed');
     }
 
+    onReadyToInstall?.();
     await launchApkInstaller(download.fileUri);
   }
 
