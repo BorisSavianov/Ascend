@@ -137,6 +137,9 @@ export function bytesFromBase64(base64: string): Uint8Array {
 }
 
 export function normalizeChecksum(checksum: string): string | null {
-  const match = checksum.match(/[A-Fa-f0-9]{64}/);
-  return match ? match[0].toLowerCase() : null;
+  // Match MD5 (32 hex) or SHA-256 (64 hex) – try longer match first
+  const sha256 = checksum.match(/[A-Fa-f0-9]{64}/);
+  if (sha256) return sha256[0].toLowerCase();
+  const md5 = checksum.match(/[A-Fa-f0-9]{32}/);
+  return md5 ? md5[0].toLowerCase() : null;
 }

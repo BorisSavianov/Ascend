@@ -72,7 +72,7 @@ export function resolveChecksumAssetName(
   metadata: ReleaseMetadata,
 ): string {
   if (metadata.checksumAssetName) return metadata.checksumAssetName;
-  return `${apkAsset.name}.sha256`;
+  return `${apkAsset.name}.md5`;
 }
 
 function scoreAsset(name: string): number {

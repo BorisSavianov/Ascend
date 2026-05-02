@@ -137,14 +137,14 @@ jobs:
             --out "$SIGNED_APK" \
             "dist/aligned.apk"
           
-          sha256sum "$SIGNED_APK" > "dist/Ascend.apk.sha256"
+          md5sum "$SIGNED_APK" > "dist/Ascend.apk.md5"
           echo "Signing completed successfully."
 
       - name: Build release notes
         run: |
           mkdir -p dist
           cat > dist/release-notes.md <<EOF
-          <!-- ascend-update {"assetName":"Ascend.apk","checksumAssetName":"Ascend.apk.sha256","force":false} -->
+          <!-- ascend-update {"assetName":"Ascend.apk","checksumAssetName":"Ascend.apk.md5","force":false} -->
 
           ## Release ${GITHUB_REF_NAME}
 
@@ -157,7 +157,7 @@ jobs:
         with:
           files: |
             dist/Ascend.apk
-            dist/Ascend.apk.sha256
+            dist/Ascend.apk.md5
           body_path: dist/release-notes.md
           prerelease: ${{ contains(github.ref_name, '-') }}
           draft: false

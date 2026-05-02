@@ -1,7 +1,7 @@
 import * as FileSystem from 'expo-file-system';
 import type { DownloadResumable, FileSystemDownloadResult } from 'expo-file-system';
 import type { UpdateCandidate, UpdateProgress } from './types';
-import { normalizeChecksum, SHA256, bytesFromBase64 } from './sha256';
+import { normalizeChecksum } from './sha256';
 import { readUpdateState, writeUpdateState } from './storage';
 
 export type DownloadOutcome = {
@@ -42,27 +42,12 @@ async function ensureDownloadDir(): Promise<void> {
 }
 
 async function readFileChecksum(fileUri: string): Promise<string> {
-  const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB keeps memory bounded while reducing hashing overhead
-  const info = await FileSystem.getInfoAsync(fileUri);
+  const info = await FileSystem.getInfoAsync(fileUri, { md5: true });
   if (!info.exists) throw new Error('File not found for checksum');
-  
-  const hasher = new SHA256();
-  let position = 0;
-  const totalSize = typeof info.size === 'number' ? info.size : 0;
-  if (totalSize <= 0) throw new Error('Downloaded file has invalid size');
-
-  while (position < totalSize) {
-    const length = Math.min(CHUNK_SIZE, totalSize - position);
-    const base64 = await FileSystem.readAsStringAsync(fileUri, {
-      encoding: FileSystem.EncodingType.Base64,
-      position,
-      length,
-    });
-    hasher.update(bytesFromBase64(base64));
-    position += length;
-  }
-
-  return hasher.finalize();
+  if (typeof info.size !== 'number' || info.size <= 0) throw new Error('Downloaded file has invalid size');
+  const md5 = (info as { md5?: string }).md5;
+  if (!md5) throw new Error('Native MD5 computation failed');
+  return md5.toLowerCase();
 }
 
 function parseExpectedChecksum(text: string): string | null {
