@@ -223,7 +223,7 @@ export default function WorkoutExerciseCard({
               Done
             </Text>
             {/* Spacer for remove icon column */}
-            <View style={{ width: 24 }} />
+            <View style={{ width: 32, marginRight: spacing.sm }} />
           </View>
 
           {/* Set rows */}
@@ -272,17 +272,17 @@ export default function WorkoutExerciseCard({
                     onPress={() => onRemoveSet(set.id, i)}
                     hitSlop={8}
                     style={{
-                      width: 24,
+                      width: 32,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      paddingRight: spacing.md,
+                      marginRight: spacing.sm,
                     }}
                     accessibilityLabel={`Remove set ${set.set_number}`}
                   >
-                    <Ionicons name="remove-circle-outline" size={16} color={colors.text.disabled} />
+                    <Ionicons name="remove-circle-outline" size={18} color={colors.text.disabled} />
                   </Pressable>
                 ) : (
-                  <View style={{ width: 24 }} />
+                  <View style={{ width: 32, marginRight: spacing.sm }} />
                 )}
               </View>
             );

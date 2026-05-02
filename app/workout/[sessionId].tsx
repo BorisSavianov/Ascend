@@ -112,6 +112,14 @@ export default function WorkoutSessionScreen() {
   }, []);
 
   const handleBackPress = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/move');
+    }
+  }, []);
+
+  function handleFinishRequest() {
     if (!session) {
       router.replace('/(tabs)/move');
       return;
@@ -124,7 +132,7 @@ export default function WorkoutSessionScreen() {
     } else {
       handleFinish();
     }
-  }, [session]);
+  }
 
   function handleFinish() {
     if (!session) return;
@@ -417,7 +425,7 @@ export default function WorkoutSessionScreen() {
             completedSets={completedSets}
             totalSets={totalSets}
             elapsedLabel={elapsedLabel}
-            onFinish={handleFinish}
+            onFinish={handleFinishRequest}
             isFinishing={isFinishing}
           />
         ) : null}
