@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import Button from './ui/Button';
 import Surface from './ui/Surface';
@@ -51,7 +51,7 @@ export default function UpdatePrompt({
             </Text>
           </View>
 
-          <View style={{ marginTop: spacing.lg }}>
+          <ScrollView style={{ marginTop: spacing.lg, maxHeight: 240 }} showsVerticalScrollIndicator={true}>
             <Markdown
               style={{
                 body: { ...typography.bodySm, color: colors.text.primary, margin: 0 },
@@ -67,7 +67,7 @@ export default function UpdatePrompt({
             >
               {body}
             </Markdown>
-          </View>
+          </ScrollView>
 
           <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
             <View style={{
